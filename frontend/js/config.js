@@ -6,8 +6,7 @@
 
 (function () {
   // Configured production backend Render Web Service URL
-  const DEFAULT_REMOTE_BACKEND_URL = "https://quizbuilder-backend.onrender.com";
-
+const DEFAULT_REMOTE_BACKEND_URL = "https://quizbuilder-backend-504h.onrender.com";
   let detectedBaseUrl = "";
   if (typeof window !== "undefined") {
     const isLocalhost =
