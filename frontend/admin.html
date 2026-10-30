@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz Builder – Admin Portal</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===================== NAVBAR ===================== -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <div class="brand">
+        <span class="logo-badge">🔒</span>
+        <span>Quiz Builder
+          <small>Admin Portal</small>
+        </span>
+      </div>
+      <div class="navbar-actions">
+        <a href="index.html" class="btn btn-outline">← Student Portal</a>
+        <button id="admin-logout-btn" class="btn btn-outline hidden">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== ADMIN LOGIN ===================== -->
+  <div id="admin-login-view" class="admin-login-wrap">
+    <div class="admin-login-card">
+      <div class="icon-circle">🛡️</div>
+      <h2>Admin Sign In</h2>
+      <p class="sub">Enter your administrator credentials to manage the examination system.</p>
+
+      <div id="admin-login-alert" class="alert alert-error"></div>
+
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label for="admin-id">Admin ID</label>
+          <input type="text" id="admin-id" required />
+        </div>
+        <div class="form-group">
+          <label for="admin-password">Password</label>
+          <input type="password" id="admin-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Login to Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== ADMIN DASHBOARD ===================== -->
+  <div id="admin-dashboard-view" class="dashboard-shell">
+    <div class="dash-header">
+      <div class="dash-header-inner" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+        <div>
+          <h1>CENTRALIZED ADMIN DASHBOARD</h1>
+          <p>Real-time cross-device monitoring of student registrations, active exam sessions, and certified results from MongoDB Atlas.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="live-indicator-pill"><span class="pulse-dot"></span> Live • 10s auto-refresh</span>
+          <button id="manual-refresh-btn" class="btn btn-outline btn-sm">🔄 Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-body">
+
+      <!-- Backend Connection Alert Banner -->
+      <div id="admin-connection-error" class="alert alert-error hidden" style="margin-bottom: 20px;"></div>
+
+      <!-- Stats -->
+      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div>
+            <div class="stat-value" id="stat-total-students">0</div>
+            <div class="stat-label">Total Students</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🚀</div>
+          <div>
+            <div class="stat-value" id="stat-exams-started">0</div>
+            <div class="stat-label">Exams Started</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div>
+            <div class="stat-value" id="stat-exams-submitted">0</div>
+            <div class="stat-label">Exams Submitted</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#059669;">⚡</div>
+          <div>
+            <div class="stat-value" id="stat-active-exams" style="color:#059669;">0</div>
+            <div class="stat-label">Active Now</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📈</div>
+          <div>
+            <div class="stat-value" id="stat-avg-score">0%</div>
+            <div class="stat-label">Average Score</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div>
+            <div class="stat-value" id="stat-total-questions">0</div>
+            <div class="stat-label">Total Questions</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📚</div>
+          <div>
+            <div class="stat-value" id="stat-total-exams">1</div>
+            <div class="stat-label">Exams Created</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#166534;">🎉</div>
+          <div>
+            <div class="stat-value" id="stat-pass-count" style="color:#166534;">0</div>
+            <div class="stat-label">Passed Exams</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#991b1b;">⚠️</div>
+          <div>
+            <div class="stat-value" id="stat-fail-count" style="color:#991b1b;">0</div>
+            <div class="stat-label">Failed Exams</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exam Settings -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Exam Settings</h2>
+        </div>
+        <div id="exam-settings-alert" class="alert alert-success"></div>
+        <form id="exam-settings-form">
+          <div class="form-group">
+            <label for="exam-time-input">Exam Duration (minutes)</label>
+            <input type="number" id="exam-time-input" min="1" max="180" value="15" />
+          </div>
+          <button type="submit" class="btn btn-primary">Update Exam Duration</button>
+        </form>
+      </div>
+
+      <!-- Add Question -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Add Exam Question</h2>
+        </div>
+
+        <div id="question-alert" class="alert alert-success"></div>
+
+        <form id="question-form">
+          <div class="form-group">
+            <label for="q-text">Question</label>
+            <textarea id="q-text" placeholder="Enter the question text..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="opt-a">Option A</label>
+              <input type="text" id="opt-a" />
+            </div>
+            <div class="form-group">
+              <label for="opt-b">Option B</label>
+              <input type="text" id="opt-b" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="opt-c">Option C</label>
+              <input type="text" id="opt-c" />
+            </div>
+            <div class="form-group">
+              <label for="opt-d">Option D</label>
+              <input type="text" id="opt-d" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="correct-answer">Correct Answer</label>
+            <select id="correct-answer">
+              <option value="0">Option A</option>
+              <option value="1">Option B</option>
+              <option value="2">Option C</option>
+              <option value="3">Option D</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Save Question</button>
+        </form>
+      </div>
+
+      <!-- Saved Questions -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>SAVED QUESTIONS</h2>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="question-search-input" placeholder="🔍 Search question statement..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:220px;" />
+            <span class="count-badge" id="questions-count-badge">0 questions</span>
+            <button id="reset-questions-btn" class="btn btn-danger btn-sm">Reset Default Questions</button>
+          </div>
+        </div>
+        <div id="questions-list"></div>
+      </div>
+
+      <!-- Registered Students -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>REGISTERED STUDENTS</h2>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="student-search-input" placeholder="🔍 Search name, username, email..." style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:240px;" />
+            <span class="count-badge" id="students-count-badge">0 students</span>
+          </div>
+        </div>
+        <div id="students-list"></div>
+      </div>
+
+      <!-- Student-Wise Exam History & Live Activity Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>STUDENT-WISE EXAM HISTORY & LIVE ACTIVITY</h2>
+            <p style="font-size:0.85rem; color: var(--gray-600); margin: 4px 0 0;" id="results-summary-line">
+              Real-time student examination activity across all devices.
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="count-badge" id="results-count-badge">0 attempts</span>
+            <button id="export-results-excel-btn" class="btn btn-primary btn-sm">📊 Download Excel (.xls)</button>
+            <button id="export-results-csv-btn" class="btn btn-outline btn-sm">📄 Download CSV</button>
+            <button id="clear-results-btn" class="btn btn-danger btn-sm">Clear All Results</button>
+          </div>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="activity-search-input" placeholder="🔍 Search student name, username, email, exam..." style="flex:1; min-width:260px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem;" />
+          <select id="activity-status-filter" style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; background:white; cursor:pointer;">
+            <option value="all">All Statuses (Completed & Active)</option>
+            <option value="Passed">Passed Only</option>
+            <option value="Failed">Failed Only</option>
+            <option value="Active">In Progress / Active Only</option>
+          </select>
+        </div>
+
+        <div id="results-list"></div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>LEADERBOARD</h2>
+        </div>
+        <div id="leaderboard-list"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Confirm delete modal -->
+  <div id="delete-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">🗑️</div>
+      <h3>Delete this question?</h3>
+      <p>This action cannot be undone. The question will be permanently removed.</p>
+      <div class="modal-actions">
+        <button id="cancel-delete-btn" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-delete-btn" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm clear results modal -->
+  <div id="clear-results-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">🗑️</div>
+      <h3>Clear all exam results?</h3>
+      <p>This will permanently delete every student's exam attempt history, including scores and answer reviews. This cannot be undone.</p>
+      <div class="modal-actions">
+        <button id="cancel-clear-results-btn" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-clear-results-btn" class="btn btn-danger">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm reset modal -->
+  <div id="reset-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">⚠️</div>
+      <h3>Reset Default Questions?</h3>
+      <p>This will reset standard default questions for this examination. All your custom questions, student records, and results will be preserved.</p>
+      <div class="modal-actions">
+        <button id="cancel-reset-btn" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-reset-btn" class="btn btn-danger">Confirm Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm student delete modal -->
+  <div id="delete-student-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">👤</div>
+      <h3>Delete student account?</h3>
+      <p id="delete-student-msg">This will permanently delete this student account and their examination sessions.</p>
+      <div class="modal-actions">
+        <button id="cancel-delete-student-btn" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-delete-student-btn" class="btn btn-danger">Delete Student</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Question Modal -->
+  <div id="edit-question-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 600px; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+        <h3 style="margin:0;">Edit Question</h3>
+        <button id="close-edit-q-btn" class="btn btn-ghost btn-sm" style="font-size:1.2rem; line-height:1;">✕</button>
+      </div>
+      <form id="edit-question-form">
+        <input type="hidden" id="edit-q-id" />
+        <div class="form-group">
+          <label for="edit-q-text">Question Statement</label>
+          <textarea id="edit-q-text" rows="3" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-opt-a">Option A</label>
+            <input type="text" id="edit-opt-a" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-opt-b">Option B</label>
+            <input type="text" id="edit-opt-b" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-opt-c">Option C</label>
+            <input type="text" id="edit-opt-c" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-opt-d">Option D</label>
+            <input type="text" id="edit-opt-d" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-correct-answer">Correct Answer</label>
+          <select id="edit-correct-answer">
+            <option value="0">Option A</option>
+            <option value="1">Option B</option>
+            <option value="2">Option C</option>
+            <option value="3">Option D</option>
+          </select>
+        </div>
+        <div class="modal-actions" style="margin-top:20px;">
+          <button type="button" id="cancel-edit-q-btn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Student Exam History Modal -->
+  <div id="student-history-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 720px; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+        <div>
+          <h3 style="margin:0;" id="sh-student-name">Student Examination History</h3>
+          <p style="margin:2px 0 0; color:var(--gray-600); font-size:0.85rem;" id="sh-student-meta">—</p>
+        </div>
+        <button id="close-sh-btn" class="btn btn-ghost btn-sm" style="font-size:1.2rem; line-height:1;">✕</button>
+      </div>
+      <div id="sh-history-content" style="max-height: 420px; overflow-y:auto;">
+        <div class="empty-state">Loading examination history...</div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button id="close-sh-footer-btn" class="btn btn-primary btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

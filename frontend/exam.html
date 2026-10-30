@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz Builder – Examination in Progress</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===================== SECURITY / PRE-EXAM SCREEN ===================== -->
+  <div id="security-screen" class="security-screen">
+    <div class="security-card">
+      <div class="shield">🛡️</div>
+      <h2>SECURE EXAM MODE</h2>
+      <p>
+        The examination will start in browser full-screen mode. Leaving full-screen
+        or switching away from the examination window creates a security warning.
+      </p>
+      <div class="warn-box">
+        This is browser-level security only. A standard web browser cannot lock down
+        your entire operating system — but full-screen exits, tab switches, restricted
+        keyboard shortcuts, copy/paste, and right-click will all be detected and logged
+        as security violations during your exam.
+      </div>
+      <div id="fullscreen-error" class="alert alert-error"></div>
+      <button id="start-exam-btn" class="btn btn-primary btn-block">START SECURE EXAM</button>
+    </div>
+  </div>
+
+  <!-- ===================== EXAM SHELL ===================== -->
+  <div id="exam-shell" class="exam-shell">
+
+    <div class="exam-header">
+      <div class="exam-brand">
+        <span class="logo-badge">🔒</span> Quiz Builder
+      </div>
+      <div class="candidate-info">
+        Candidate: <strong id="candidate-name-label">—</strong>
+      </div>
+      <div class="secure-badge"><span class="dot"></span> Secure Mode Active</div>
+    </div>
+
+    <div id="warning-strip" class="warning-strip"></div>
+
+    <div class="exam-toolbar">
+      <div class="exam-title">
+        <h2>PROGRAMMING FUNDAMENTALS</h2>
+        <p>Secure Assessment</p>
+      </div>
+      <div class="status-cluster">
+        <div class="warn-counter" id="warn-counter">Warnings: 0/3</div>
+        <div class="timer-box" id="timer-box">15:00</div>
+      </div>
+    </div>
+
+    <div class="exam-main">
+      <!-- Question Panel -->
+      <div class="question-panel">
+        <div class="q-meta" id="q-meta">Loading questions...</div>
+        <div class="q-body" id="q-body">Loading question...</div>
+        <div id="options-container"></div>
+
+        <div class="exam-nav-buttons">
+          <button id="prev-btn" class="btn btn-ghost">← Previous</button>
+          <button id="review-mark-btn" class="btn btn-ghost" type="button" style="border: 1px solid #f59e0b; color: #b45309; font-weight: 600;">⭐ Mark for Review</button>
+          <button id="next-btn" class="btn btn-primary">Next →</button>
+          <button id="finish-btn" class="btn btn-primary hidden">Finish &amp; Submit Exam</button>
+        </div>
+      </div>
+
+      <!-- Side Panel -->
+      <div class="side-panel">
+        <h3>Question Navigator</h3>
+        <div class="qnav-grid" id="qnav-grid"></div>
+        <div class="legend">
+          <span><span class="dot-box current-dot"></span> Current question</span>
+          <span><span class="dot-box answered-dot"></span> Answered</span>
+          <span><span class="dot-box" style="background:#f59e0b; border: 1px solid #d97706;"></span> For Review</span>
+          <span><span class="dot-box unanswered-dot"></span> Not answered</span>
+        </div>
+        <button id="submit-exam-btn" class="btn btn-danger btn-block">Submit Exam</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit confirmation modal -->
+  <div id="submit-modal" class="modal-overlay">
+    <div class="modal-box confirm">
+      <div class="modal-icon">📤</div>
+      <h3>Submit your exam?</h3>
+      <p>Are you sure you want to submit your exam? You will not be able to change your answers after submission.</p>
+      <div class="modal-actions">
+        <button id="cancel-submit-btn" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-submit-btn" class="btn btn-primary">Yes, Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-submit (3 violations) modal -->
+  <div id="auto-submit-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">🚫</div>
+      <h3>Examination Terminated</h3>
+      <p>Three security violations detected. Your examination will now be submitted.</p>
+      <div class="modal-actions">
+        <button id="ack-auto-submit-btn" class="btn btn-danger">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submission Failure Retry Modal -->
+  <div id="submit-error-modal" class="modal-overlay">
+    <div class="modal-box danger">
+      <div class="modal-icon">⚠️</div>
+      <h3 style="color:#991b1b;">Submission Failed</h3>
+      <p id="submit-error-msg" style="margin:12px 0 20px; color:#475569;">Could not submit your exam to the server. Your answers are saved securely. Please retry.</p>
+      <div class="modal-actions">
+        <button id="retry-submit-btn" class="btn btn-primary">🔄 Retry Submission</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/exam.js"></script>
+</body>
+</html>

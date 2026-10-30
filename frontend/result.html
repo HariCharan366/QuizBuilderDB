@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz Builder – Result</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="result-shell">
+    <div class="result-card" style="max-width: 720px;">
+      <div class="check-circle">✅</div>
+      <h1>EXAM COMPLETED</h1>
+      <p class="sub">Assessment Submitted</p>
+
+      <p style="color:var(--gray-600); margin-bottom: 4px;">Student Name</p>
+      <h2 id="result-student-name" style="margin:0 0 6px; color: var(--navy-900);">—</h2>
+      <p id="result-meta" style="color: var(--gray-600); font-size: 0.85rem; margin: 0 0 20px;">—</p>
+
+      <div class="score-display">
+        <span id="result-score">0</span> <span id="result-total-slash">/ 0</span>
+      </div>
+
+      <div class="result-stats">
+        <div class="rstat">
+          <div class="rval" id="stat-total">0</div>
+          <div class="rlabel">Total Questions</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-correct">0</div>
+          <div class="rlabel">Correct Answers</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-wrong">0</div>
+          <div class="rlabel">Wrong Answers</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-warnings">0</div>
+          <div class="rlabel">Security Warnings</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-time">0:00</div>
+          <div class="rlabel">Time Taken</div>
+        </div>
+      </div>
+
+      <button id="review-toggle-btn" class="btn btn-ghost btn-block" style="margin-bottom: 14px;">
+        View Detailed Answer Review ▾
+      </button>
+
+      <div id="review-section" class="hidden" style="text-align:left; margin-bottom: 22px;"></div>
+
+      <a href="index.html" class="btn btn-primary btn-block">Return to Student Portal</a>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function () {
+      function formatDuration(totalSeconds) {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return m + ":" + String(s).padStart(2, "0");
+      }
+      function formatDateTime(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        return d.toLocaleString();
+      }
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      const reviewSection = document.getElementById("review-section");
+      const reviewToggleBtn = document.getElementById("review-toggle-btn");
+      const labels = ["A", "B", "C", "D"];
+
+      function renderResultView(result) {
+        document.getElementById("result-student-name").textContent = result.studentName || "—";
+        document.getElementById("result-meta").textContent =
+          "Submitted on " + formatDateTime(result.dateTime || result.submittedAt) + (result.username ? "  •  Username: " + result.username : "");
+        document.getElementById("result-score").textContent = result.score;
+        document.getElementById("result-total-slash").textContent = "/ " + result.total;
+        document.getElementById("stat-total").textContent = result.total;
+        document.getElementById("stat-correct").textContent = result.correct;
+        document.getElementById("stat-wrong").textContent = result.wrong;
+        document.getElementById("stat-warnings").textContent = (result.warnings || 0) + "/3";
+        document.getElementById("stat-time").textContent = formatDuration(result.timeTakenSeconds || 0);
+
+        if (Array.isArray(result.answers) && result.answers.length > 0) {
+          reviewSection.innerHTML = result.answers
+            .map((a, i) => {
+              const statusClass = a.selectedIndex === null || a.selectedIndex === undefined ? "unanswered" : a.isCorrect ? "correct" : "incorrect";
+              const statusLabel =
+                a.selectedIndex === null || a.selectedIndex === undefined ? "Not Answered" : a.isCorrect ? "✓ Correct" : "✗ Incorrect";
+
+              const optionsHtml = (a.options || [])
+                .map((opt, idx) => {
+                  const isCorrectAnswer = idx === a.correctIndex;
+                  const isSelected = idx === a.selectedIndex;
+                  let cls = "";
+                  let tag = "";
+                  if (isCorrectAnswer) {
+                    cls += " is-correct-answer";
+                    tag += " ✓ Correct Answer";
+                  }
+                  if (isSelected && !isCorrectAnswer) {
+                    cls += " is-wrong-selected";
+                    tag += " ✗ Your Answer";
+                  } else if (isSelected && isCorrectAnswer) {
+                    tag += " (Your Answer)";
+                  }
+                  return `<li class="${cls.trim()}">${labels[idx] || idx}. ${escapeHtml(opt)}${tag ? " —" + tag : ""}</li>`;
+                })
+                .join("");
+
+              return `
+                <div class="review-item ${statusClass}">
+                  <div class="q-top">
+                    <div>
+                      <span class="q-number">Question ${i + 1}</span>
+                      <div class="q-text">${escapeHtml(a.question)}</div>
+                    </div>
+                    <span class="status-badge ${statusClass}">${statusLabel}</span>
+                  </div>
+                  <ul class="option-list review-option-list">${optionsHtml}</ul>
+                </div>
+              `;
+            })
+            .join("");
+        } else {
+          reviewSection.innerHTML = '<div class="empty-state">No detailed answer data available for this attempt.</div>';
+        }
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const resId = urlParams.get('id');
+      const token = sessionStorage.getItem("authToken") || localStorage.getItem("authToken");
+
+      if (!token) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      function showResultError(msg) {
+        document.getElementById("result-student-name").textContent = "Result Unavailable";
+        document.getElementById("result-meta").textContent = msg;
+        document.getElementById("result-score").textContent = "—";
+        document.getElementById("result-total-slash").textContent = "";
+        reviewSection.innerHTML = `<div class="empty-state" style="color:var(--danger);">${escapeHtml(msg)}</div>`;
+      }
+
+      const endpoint = resId ? `/api/results/${resId}` : `/api/results/my-results`;
+      const url = typeof window.apiUrl === 'function' ? window.apiUrl(endpoint) : (typeof apiUrl === 'function' ? apiUrl(endpoint) : endpoint);
+
+      fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const resultData = data.result || (Array.isArray(data.results) && data.results.length > 0 ? data.results[0] : null);
+            if (resultData) {
+              renderResultView(resultData);
+              return;
+            }
+          }
+          showResultError(data.message || "No examination result found for your account.");
+        })
+        .catch(err => {
+          console.error("Result fetch error:", err);
+          showResultError("Unable to retrieve examination results from the backend database.");
+        });
+
+      reviewToggleBtn.addEventListener("click", () => {
+        const isHidden = reviewSection.classList.contains("hidden");
+        reviewSection.classList.toggle("hidden");
+        reviewToggleBtn.textContent = isHidden ? "Hide Detailed Answer Review ▴" : "View Detailed Answer Review ▾";
+      });
+    })();
+  </script>
+</body>
+</html>

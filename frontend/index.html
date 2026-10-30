@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz Builder – Online Examination System</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===================== NAVBAR ===================== -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <div class="brand">
+        <span class="logo-badge">🔒</span>
+        <span>Quiz Builder
+          <small>Secure Examination Portal</small>
+        </span>
+      </div>
+      <div class="navbar-actions">
+        <span class="nav-tagline">Student Portal</span>
+        <a href="admin.html" class="btn btn-outline">Admin Portal</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero">
+    <h1>Focus. Fairness. Security.</h1>
+    <p class="lead">
+      Quiz Builder is a browser-based online examination platform built to deliver timed,
+      monitored, and tamper-resistant assessments — enforcing exam integrity directly
+      inside the student's browser.
+    </p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3>Secure Session</h3>
+        <p>Each exam runs inside a locked, monitored browser session tied to the logged-in candidate.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⏱️</div>
+        <h3>Timed Examination</h3>
+        <p>A strict countdown timer ensures every candidate is assessed under equal time constraints.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✅</div>
+        <h3>Auto Evaluation</h3>
+        <p>Answers are instantly compared against the answer key and scored the moment you submit.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👁️</div>
+        <h3>Browser Monitoring</h3>
+        <p>Full-screen exit, tab switching, and restricted shortcuts are detected and flagged in real time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== AUTH SECTION ===================== -->
+  <section class="auth-section">
+    <div class="auth-card">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="login-tab" type="button">Student Login</button>
+        <button class="tab-btn" data-tab="register-tab" type="button">Create Account</button>
+      </div>
+
+      <!-- LOGIN TAB -->
+      <div id="login-tab" class="tab-content active">
+        <div id="login-alert" class="alert alert-error"></div>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input type="text" id="login-username" autocomplete="username" required />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" autocomplete="current-password" required />
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-top: -6px; margin-bottom: 14px;">
+            <a href="#" id="forgot-password-link" style="font-size: 0.82rem; color: var(--navy-700); text-decoration: none; font-weight: 600;">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+      </div>
+
+      <!-- REGISTER TAB -->
+      <div id="register-tab" class="tab-content">
+        <div id="register-alert" class="alert alert-error"></div>
+        <form id="register-form">
+          <div class="form-group">
+            <label for="reg-fullname">Full Name</label>
+            <input type="text" id="reg-fullname" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-username">Username</label>
+            <input type="text" id="reg-username" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email Address</label>
+            <input type="email" id="reg-email" placeholder="e.g. student@college.edu" required />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reg-password">Password</label>
+              <input type="password" id="reg-password" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-confirm">Confirm Password</label>
+              <input type="password" id="reg-confirm" required />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        </form>
+      </div>
+    </div>
+
+    <p class="no-db-note">All the best!</p>
+  </section>
+
+  <!-- Forgot Password Modal -->
+  <div id="forgot-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px; text-align: left;">
+      <div class="modal-icon" style="text-align: center;">🔑</div>
+      <h3 style="text-align: center; margin-bottom: 6px;">Reset Password</h3>
+      <p style="text-align: center; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 16px;">
+        Enter your registered username or email to reset your account password.
+      </p>
+      <div id="forgot-alert" class="alert alert-error"></div>
+      
+      <form id="forgot-form">
+        <div class="form-group">
+          <label for="forgot-identifier">Username or Email</label>
+          <input type="text" id="forgot-identifier" placeholder="e.g. charan or student@college.edu" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Request Reset Code</button>
+      </form>
+
+      <form id="reset-form" class="hidden" style="margin-top: 14px;">
+        <div class="form-group">
+          <label for="reset-code">Reset Code / Token</label>
+          <input type="text" id="reset-code" required />
+        </div>
+        <div class="form-group">
+          <label for="new-password">New Password</label>
+          <input type="password" id="new-password" required minlength="4" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Update Password</button>
+      </form>
+
+      <div style="margin-top: 14px; text-align: center;">
+        <button id="close-forgot-modal" class="btn btn-ghost btn-sm" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    Quiz Builder.
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
