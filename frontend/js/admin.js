@@ -248,19 +248,244 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* =========================================================
+     CANDIDATE DETAILED ANSWERS MODAL (Non-Disruptive Full View)
+     ========================================================= */
+  let currentCamRecord = null;
+  let currentCamFilter = 'all';
+  let currentCamSearch = '';
+  const expandedActivityRows = new Set();
+
+  function openCandidateAnswersModal(record) {
+    if (!record) return;
+    currentCamRecord = record;
+    currentCamFilter = 'all';
+    currentCamSearch = '';
+
+    const modal = document.getElementById("candidate-answers-modal");
+    const nameEl = document.getElementById("cam-candidate-name");
+    const metaEl = document.getElementById("cam-meta-info");
+    const searchInput = document.getElementById("cam-search-input");
+    if (searchInput) searchInput.value = "";
+
+    const candidateName = record.studentName || record.name || "Candidate";
+    const username = record.username || "?";
+    const examName = record.examName || record.examTitle || "Programming Fundamentals Examination";
+    const dateFormatted = formatDateTimeA(record.dateTime || record.submittedAt);
+    const duration = record.timeTaken || '0:00';
+    const warnings = record.warnings || 0;
+
+    if (nameEl) nameEl.textContent = `📝 ${candidateName} — Candidate Answer Sheet`;
+    if (metaEl) {
+      metaEl.textContent = `@${username} • ${examName} • Date: ${dateFormatted} • Duration: ${duration} • Warnings: ${warnings}/3`;
+    }
+
+    renderCamModalBody();
+    if (modal) modal.classList.add("show");
+  }
+
+  function renderCamModalBody() {
+    if (!currentCamRecord) return;
+    const record = currentCamRecord;
+    const answers = Array.isArray(record.answers) ? record.answers : [];
+    const totalQ = record.totalQuestions || record.total || answers.length || 40;
+
+    let answeredCount = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
+    let unansweredCount = 0;
+
+    answers.forEach(a => {
+      const hasSel = a.selectedIndex !== null && a.selectedIndex !== undefined && a.selectedIndex !== '';
+      if (hasSel) {
+        answeredCount++;
+        const selIdx = Number(a.selectedIndex);
+        const corrIdx = a.correctIndex !== null && a.correctIndex !== undefined ? Number(a.correctIndex) : null;
+        if (a.isCorrect === true || (corrIdx !== null && selIdx === corrIdx)) {
+          correctCount++;
+        } else {
+          wrongCount++;
+        }
+      } else {
+        unansweredCount++;
+      }
+    });
+
+    if (record.rawScore !== null && record.rawScore !== undefined && typeof record.rawScore === 'number') {
+      correctCount = record.rawScore;
+    } else if (record.correct !== undefined && typeof record.correct === 'number') {
+      correctCount = record.correct;
+    }
+    if (record.wrong !== undefined && typeof record.wrong === 'number') {
+      wrongCount = record.wrong;
+    }
+    if (record.unanswered !== undefined && typeof record.unanswered === 'number') {
+      unansweredCount = record.unanswered;
+    }
+
+    // Stats bar
+    const statsBar = document.getElementById("cam-stats-bar");
+    if (statsBar) {
+      const isSession = record.isSession === true || record.isActive === true || record.status === 'In Progress';
+      const statusBadge = isSession
+        ? '<span style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-weight:bold;">In Progress ⏳</span>'
+        : record.percentage !== null && record.percentage !== undefined
+        ? `<strong style="color:${record.percentage >= 50 ? '#166534' : '#991b1b'};">Score: ${record.score || (correctCount + '/' + totalQ)} (${record.percentage}%)</strong>`
+        : `<strong>Score: ${record.score || (correctCount + '/' + totalQ)}</strong>`;
+
+      statsBar.innerHTML = `
+        <div style="margin-right:8px;">${statusBadge}</div>
+        <span style="color:var(--gray-300);">|</span>
+        <span style="font-weight:600; color:#2563eb;">Attempted: ${answeredCount}/${totalQ}</span>
+        <span style="color:var(--gray-300);">|</span>
+        <span style="font-weight:600; color:#166534;">✓ Correct: ${correctCount}</span>
+        <span style="color:var(--gray-300);">|</span>
+        <span style="font-weight:600; color:#991b1b;">✗ Incorrect: ${wrongCount}</span>
+        <span style="color:var(--gray-300);">|</span>
+        <span style="color:var(--gray-600);">⏳ Unanswered: ${unansweredCount}</span>
+      `;
+    }
+
+    // Filter tabs
+    const filterTabs = document.getElementById("cam-filter-tabs");
+    if (filterTabs) {
+      const filters = [
+        { id: 'all', label: `All Questions (${answers.length})` },
+        { id: 'answered', label: `Answered Only (${answeredCount})` },
+        { id: 'correct', label: `✓ Correct (${correctCount})` },
+        { id: 'wrong', label: `✗ Incorrect (${wrongCount})` },
+        { id: 'unanswered', label: `Unanswered (${unansweredCount})` }
+      ];
+
+      filterTabs.innerHTML = filters.map(f => {
+        const isActive = currentCamFilter === f.id;
+        const activeStyle = isActive
+          ? 'background:var(--primary); color:white; border-color:var(--primary); font-weight:600;'
+          : 'background:white; color:var(--gray-700); border-color:var(--gray-300);';
+        return `<button class="btn btn-sm cam-filter-btn" data-cam-filter="${f.id}" style="padding:4px 10px; font-size:0.8rem; border:1px solid; border-radius:6px; cursor:pointer; ${activeStyle}">${f.label}</button>`;
+      }).join("");
+
+      filterTabs.querySelectorAll(".cam-filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          currentCamFilter = btn.dataset.camFilter;
+          renderCamModalBody();
+        });
+      });
+    }
+
+    // Filter questions
+    const container = document.getElementById("cam-questions-container");
+    const footerCount = document.getElementById("cam-footer-count");
+    if (!container) return;
+
+    if (answers.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:24px;">No answer details recorded for this candidate attempt.</div>';
+      if (footerCount) footerCount.textContent = '0 questions';
+      return;
+    }
+
+    const searchLower = (currentCamSearch || "").toLowerCase().trim();
+
+    const filtered = answers.map((a, origIdx) => ({ a, origIdx })).filter(({ a }) => {
+      const hasSel = a.selectedIndex !== null && a.selectedIndex !== undefined && a.selectedIndex !== '';
+      const selIdx = hasSel ? Number(a.selectedIndex) : null;
+      const corrIdx = a.correctIndex !== null && a.correctIndex !== undefined ? Number(a.correctIndex) : null;
+      const isCorr = a.isCorrect === true || (hasSel && corrIdx !== null && selIdx === corrIdx);
+
+      if (currentCamFilter === 'answered' && !hasSel) return false;
+      if (currentCamFilter === 'correct' && (!hasSel || !isCorr)) return false;
+      if (currentCamFilter === 'wrong' && (!hasSel || isCorr)) return false;
+      if (currentCamFilter === 'unanswered' && hasSel) return false;
+
+      if (searchLower) {
+        const qMatch = (a.question || "").toLowerCase().includes(searchLower);
+        const optMatch = Array.isArray(a.options) && a.options.some(opt => (opt || "").toLowerCase().includes(searchLower));
+        if (!qMatch && !optMatch) return false;
+      }
+      return true;
+    });
+
+    if (footerCount) {
+      footerCount.textContent = `Showing ${filtered.length} of ${answers.length} questions` + (currentCamFilter !== 'all' ? ` (Filter: ${currentCamFilter})` : '');
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="empty-state" style="padding:24px;">No questions found matching current filter (${currentCamFilter}) or search.</div>`;
+      return;
+    }
+
+    const cardsHtml = filtered.map(({ a, origIdx }) => {
+      const hasSel = a.selectedIndex !== null && a.selectedIndex !== undefined && a.selectedIndex !== '';
+      const selIdx = hasSel ? Number(a.selectedIndex) : null;
+      const corrIdx = a.correctIndex !== null && a.correctIndex !== undefined ? Number(a.correctIndex) : null;
+      const isCorr = a.isCorrect === true || (hasSel && corrIdx !== null && selIdx === corrIdx);
+
+      const statusLabel = !hasSel
+        ? '<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">Not Answered</span>'
+        : isCorr
+        ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✓ Correct</span>'
+        : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✗ Incorrect</span>';
+
+      const borderCol = !hasSel ? '#cbd5e1' : isCorr ? '#22c55e' : '#ef4444';
+
+      const optsHtml = Array.isArray(a.options)
+        ? a.options.map((opt, oi) => {
+            const isStudentChoice = selIdx !== null && oi === selIdx;
+            const isCorrectChoice = corrIdx !== null && oi === corrIdx;
+
+            let optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #e2e8f0; background:white;';
+            let tag = '';
+
+            if (isStudentChoice && isCorrectChoice) {
+              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #22c55e; background:#f0fdf4; font-weight:600;';
+              tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Candidate\'s Choice (Correct)</span>';
+            } else if (isStudentChoice && !isCorrectChoice) {
+              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #ef4444; background:#fef2f2; font-weight:600;';
+              tag = '<span style="margin-left:8px; color:#991b1b; font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">✗ Candidate\'s Choice (Wrong)</span>';
+            } else if (isCorrectChoice) {
+              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #86efac; background:#f0fdf4;';
+              tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Correct Answer</span>';
+            }
+
+            return `<li style="${optStyle} list-style:none;"><strong>${OPTION_LABELS_R[oi] || oi}.</strong> ${escapeHtml(opt || "")}${tag}</li>`;
+          }).join("")
+        : '';
+
+      return `
+        <div style="border:1px solid ${borderCol}; border-left:4px solid ${borderCol}; border-radius:8px; padding:14px; margin-bottom:12px; background:white;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <span style="font-weight:700; font-size:0.9rem; color:#1e293b;">Question ${origIdx + 1} of ${totalQ}</span>
+            <div>${statusLabel}</div>
+          </div>
+          <div style="font-size:0.92rem; color:#0f172a; margin-bottom:10px; font-weight:500;">
+            ${escapeHtml(a.question || "")}
+          </div>
+          <ul style="padding:0; margin:0;">${optsHtml}</ul>
+        </div>
+      `;
+    }).join("");
+
+    container.innerHTML = cardsHtml;
+  }
+
   function renderDetailedAnswers(answers) {
     if (!Array.isArray(answers) || answers.length === 0) {
       return '<div class="empty-state" style="padding:10px;">No answer details recorded for this attempt.</div>';
     }
 
     return answers.map((a, i) => {
-      const statusClass = a.selectedIndex === null || a.selectedIndex === undefined ? "unanswered" : a.isCorrect ? "correct" : "incorrect";
-      const statusLabel = a.selectedIndex === null || a.selectedIndex === undefined ? "Not Answered" : a.isCorrect ? "✓ Correct" : "✗ Incorrect";
+      const hasSel = a.selectedIndex !== null && a.selectedIndex !== undefined && a.selectedIndex !== '';
+      const selIdx = hasSel ? Number(a.selectedIndex) : null;
+      const corrIdx = a.correctIndex !== null && a.correctIndex !== undefined ? Number(a.correctIndex) : null;
+      const isCorr = a.isCorrect === true || (hasSel && corrIdx !== null && selIdx === corrIdx);
+
+      const statusClass = !hasSel ? "unanswered" : isCorr ? "correct" : "incorrect";
+      const statusLabel = !hasSel ? "Not Answered" : isCorr ? "✓ Correct" : "✗ Incorrect";
 
       const optsHtml = Array.isArray(a.options)
         ? a.options.map((opt, oi) => {
-            const isCorrectAns = oi === a.correctIndex;
-            const isSelected = oi === a.selectedIndex;
+            const isCorrectAns = oi === corrIdx;
+            const isSelected = oi === selIdx;
             let cls = "";
             let tag = "";
             if (isCorrectAns) {
@@ -309,15 +534,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const isPassed = item.submissionStatus === "Passed" || item.status === "Passed";
       const isActive = item.submissionStatus === "Active" || item.isSession === true;
       const statusBadge = isActive
-        ? '<span style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">? In Progress</span>'
+        ? '<span style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">⏳ In Progress</span>'
         : isPassed
-        ? '<span style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">? Passed</span>'
-        : '<span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">? Failed</span>';
+        ? '<span style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✓ Passed</span>'
+        : '<span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✗ Failed</span>';
 
       const hasAnswers = Array.isArray(item.answers) && item.answers.length > 0;
       const detailsBtn = hasAnswers
-        ? `<button class="btn btn-ghost btn-sm" data-toggle-activity="${idx}">View Answers</button>`
-        : '<span style="font-size:0.8rem; color:var(--gray-600);">?</span>';
+        ? `<button class="btn btn-primary btn-sm" data-view-cam="${idx}" style="font-size:0.8rem; padding:4px 10px; font-weight:600;">View Answers</button>`
+        : '<span style="font-size:0.8rem; color:var(--gray-600);">—</span>';
 
       const totalQ = item.totalQuestions || 40;
       const attemptedCount = (item.correct !== undefined && item.wrong !== undefined)
@@ -330,26 +555,32 @@ document.addEventListener("DOMContentLoaded", () => {
         : `<br><small style="color:#2563eb; font-weight:600;">📝 Attempted: ${attemptedCount}/${totalQ}</small><br><small style="color:var(--gray-600);">${item.correct || 0} correct • ${item.wrong || 0} wrong • ${unansCount} unanswered</small>`;
 
       const timingInfo = isActive
-        ? `<small>${formatDateTimeA(item.dateTime)}</small><br><small style="color:#b45309; font-weight:600;">? Rem: ${escapeHtml(item.timeRemaining || '0:00')}</small>`
-        : `<small>${formatDateTimeA(item.dateTime)}</small><br><small style="color:var(--gray-600);">? Took: ${escapeHtml(item.timeTaken || '0:00')}</small>`;
+        ? `<small>${formatDateTimeA(item.dateTime)}</small><br><small style="color:#b45309; font-weight:600;">⏳ Rem: ${escapeHtml(item.timeRemaining || '0:00')}</small>`
+        : `<small>${formatDateTimeA(item.dateTime)}</small><br><small style="color:var(--gray-600);">⏱ Took: ${escapeHtml(item.timeTaken || '0:00')}</small>`;
 
-      const warningBadge = item.warnings > 0 ? `<br><small style="color:#b91c1c; font-weight:bold;">?? ${item.warnings}/3 warnings</small>` : '';
+      const warningBadge = item.warnings > 0 ? `<br><small style="color:#b91c1c; font-weight:bold;">⚠️ ${item.warnings}/3 warnings</small>` : '';
+
+      const isExpanded = expandedActivityRows.has(String(idx));
+      const rowHiddenClass = isExpanded ? "" : "hidden";
+      const inlineToggleBtn = hasAnswers
+        ? `<button class="btn btn-ghost btn-sm" data-toggle-activity="${idx}" style="font-size:0.75rem; padding:2px 6px; margin-left:4px;">${isExpanded ? 'Collapse' : 'Inline'}</button>`
+        : '';
 
       return `
         <tr>
           <td style="color:var(--gray-600);">${idx + 1}</td>
           <td>
             <strong>${escapeHtml(item.studentName || "Unknown")}</strong><br>
-            <small style="color:var(--gray-600);">@${escapeHtml(item.username || "?")}</small>
+            <small style="color:var(--gray-600);">@${escapeHtml(item.username || "—")}</small>
           </td>
-          <td>${escapeHtml(item.email || "?")}</td>
+          <td>${escapeHtml(item.email || "—")}</td>
           <td>${escapeHtml(item.examName || "Programming Fundamentals")}</td>
-          <td><strong>${escapeHtml(item.score || "?")}</strong>${answeredInfo}</td>
+          <td><strong>${escapeHtml(item.score || "—")}</strong>${answeredInfo}</td>
           <td>${statusBadge}${warningBadge}</td>
           <td>${timingInfo}</td>
-          <td style="text-align:right;">${detailsBtn}</td>
+          <td style="text-align:right; white-space:nowrap;">${detailsBtn}${inlineToggleBtn}</td>
         </tr>
-        <tr id="activity-detail-row-${idx}" class="hidden" style="background:#f8fafc;">
+        <tr id="activity-detail-row-${idx}" class="${rowHiddenClass}" style="background:#f8fafc;">
           <td colspan="8" style="padding:16px;">
             <div id="activity-detail-${idx}">
               ${hasAnswers ? renderDetailedAnswers(item.answers) : ''}
@@ -379,14 +610,28 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // Attach answer toggle listeners
+    // Attach answer modal listeners
+    list.querySelectorAll("[data-view-cam]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.dataset.viewCam, 10);
+        const item = items[i];
+        if (item) openCandidateAnswersModal(item);
+      });
+    });
+
+    // Attach inline answer toggle listeners
     list.querySelectorAll("[data-toggle-activity]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const i = btn.dataset.toggleActivity;
         const detailRow = document.getElementById("activity-detail-row-" + i);
         if (detailRow) {
           const isHidden = detailRow.classList.toggle("hidden");
-          btn.textContent = isHidden ? "View Answers" : "Hide Answers";
+          btn.textContent = isHidden ? "Inline" : "Collapse";
+          if (isHidden) {
+            expandedActivityRows.delete(String(i));
+          } else {
+            expandedActivityRows.add(String(i));
+          }
         }
       });
     });
@@ -572,7 +817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const hasAnswers = Array.isArray(h.answers) && h.answers.length > 0;
                 const viewAnswersBtn = hasAnswers
-                  ? `<button class="btn btn-ghost btn-sm" data-toggle-sh-answers="${hi}">View Answers</button>`
+                  ? `<button class="btn btn-primary btn-sm" data-view-sh-cam="${hi}" style="font-size:0.78rem; padding:3px 8px; font-weight:600;">View Answers</button>`
                   : '<span style="color:var(--gray-400);">—</span>';
 
                 return `
@@ -589,13 +834,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td style="text-align:center;">${escapeHtml(h.timeTaken || '0:00')}</td>
                     <td style="text-align:center;">${h.warnings || 0}/3</td>
                     <td style="text-align:right;">${viewAnswersBtn}</td>
-                  </tr>
-                  <tr id="sh-answer-row-${hi}" class="hidden" style="background:#f8fafc;">
-                    <td colspan="12" style="padding:14px;">
-                      <div id="sh-answer-detail-${hi}">
-                        ${hasAnswers ? renderDetailedAnswers(h.answers) : ''}
-                      </div>
-                    </td>
                   </tr>
                 `;
               }).join('');
@@ -624,13 +862,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
               `;
 
-              contentEl.querySelectorAll("[data-toggle-sh-answers]").forEach(btn => {
+              contentEl.querySelectorAll("[data-view-sh-cam]").forEach(btn => {
                 btn.addEventListener("click", () => {
-                  const idx = btn.dataset.toggleShAnswers;
-                  const row = document.getElementById("sh-answer-row-" + idx);
-                  if (row) {
-                    const isHidden = row.classList.toggle("hidden");
-                    btn.textContent = isHidden ? "View Answers" : "Hide Answers";
+                  const idx = parseInt(btn.dataset.viewShCam, 10);
+                  const h = data.examHistory[idx];
+                  if (h) {
+                    openCandidateAnswersModal({
+                      ...h,
+                      studentName: name,
+                      username: username
+                    });
                   }
                 });
               });
@@ -753,6 +994,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (closeShFooterBtn && shModal) {
     closeShFooterBtn.addEventListener("click", () => shModal.classList.remove("show"));
+  }
+
+  // Candidate Detailed Answers Modal controls
+  const closeCamBtn = document.getElementById("close-cam-btn");
+  const closeCamFooterBtn = document.getElementById("close-cam-footer-btn");
+  const camModal = document.getElementById("candidate-answers-modal");
+  if (closeCamBtn && camModal) {
+    closeCamBtn.addEventListener("click", () => camModal.classList.remove("show"));
+  }
+  if (closeCamFooterBtn && camModal) {
+    closeCamFooterBtn.addEventListener("click", () => camModal.classList.remove("show"));
+  }
+
+  const camSearchInput = document.getElementById("cam-search-input");
+  if (camSearchInput) {
+    camSearchInput.addEventListener("input", (e) => {
+      currentCamSearch = e.target.value;
+      renderCamModalBody();
+    });
   }
 
   function renderQuestions(serverQuestions) {

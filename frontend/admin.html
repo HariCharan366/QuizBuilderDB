@@ -383,6 +383,41 @@
     </div>
   </div>
 
+  <!-- Candidate Detailed Answer Sheet Modal -->
+  <div id="candidate-answers-modal" class="modal-overlay" style="z-index: 1050;">
+    <div class="modal-box" style="max-width: 960px; width: 95%; text-align: left; max-height: 90vh; display: flex; flex-direction: column;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 1px solid var(--gray-200); padding-bottom: 12px; margin-bottom: 12px;">
+        <div>
+          <h3 style="margin:0; font-size:1.25rem; color:var(--gray-900);" id="cam-candidate-name">Candidate Answer Sheet</h3>
+          <p style="margin:4px 0 0; color:var(--gray-600); font-size:0.85rem;" id="cam-meta-info">—</p>
+        </div>
+        <button id="close-cam-btn" class="btn btn-ghost btn-sm" style="font-size:1.3rem; line-height:1;" title="Close">✕</button>
+      </div>
+
+      <!-- Quick Summary Badges -->
+      <div id="cam-stats-bar" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; font-size:0.85rem; align-items:center;">
+      </div>
+
+      <!-- Filter Tabs and Search Bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+        <div id="cam-filter-tabs" style="display:flex; gap:6px; flex-wrap:wrap;">
+        </div>
+        <div style="min-width: 220px;">
+          <input type="text" id="cam-search-input" placeholder="🔍 Search questions..." style="width:100%; padding:6px 12px; font-size:0.85rem; border:1px solid var(--gray-300); border-radius:6px;" />
+        </div>
+      </div>
+
+      <!-- Scrollable Questions Container -->
+      <div id="cam-questions-container" style="flex:1; overflow-y:auto; padding-right:6px; max-height: 56vh;">
+      </div>
+
+      <div class="modal-actions" style="margin-top:14px; border-top:1px solid var(--gray-200); padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span id="cam-footer-count" style="font-size:0.85rem; color:var(--gray-600);">Showing all questions</span>
+        <button id="close-cam-footer-btn" class="btn btn-primary btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/questions.js"></script>
   <script src="js/admin.js"></script>

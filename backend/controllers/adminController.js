@@ -315,10 +315,31 @@ exports.getStudentProfile = async (req, res) => {
       expiresAt: { $gt: new Date() }
     }).sort({ startTime: -1 });
 
-    // Format active sessions into unified history entries
+    // Format active sessions into unified history entries with live question/answers data
     const activeHistory = activeSessions.map(s => {
       const answeredCount = s.answers ? (s.answers instanceof Map ? s.answers.size : Object.keys(s.answers).length) : 0;
       const totalQ = (s.questionsData && s.questionsData.length) || 40;
+      const sessionAnswers = (s.questionsData || []).map((q, qIdx) => {
+        const qIdStr = q.questionId ? q.questionId.toString() : String(qIdx);
+        let selectedIndex = null;
+        if (s.answers) {
+          if (s.answers instanceof Map && s.answers.has(qIdStr)) {
+            selectedIndex = s.answers.get(qIdStr);
+          } else if (typeof s.answers === 'object' && s.answers[qIdStr] !== undefined) {
+            selectedIndex = s.answers[qIdStr];
+          }
+        }
+        return {
+          questionId: q.questionId,
+          question: q.question,
+          options: q.options || [],
+          selectedIndex: selectedIndex !== null && selectedIndex !== undefined ? Number(selectedIndex) : null,
+          correctIndex: null,
+          isCorrect: null,
+          isMarkedForReview: s.markedForReview ? (s.markedForReview instanceof Map ? !!s.markedForReview.get(qIdStr) : !!s.markedForReview[qIdStr]) : false
+        };
+      });
+
       return {
         id: s.sessionId,
         sessionId: s.sessionId,
@@ -340,7 +361,7 @@ exports.getStudentProfile = async (req, res) => {
         timeTaken: 'Active',
         warnings: s.warnings || 0,
         isActive: true,
-        answers: []
+        answers: sessionAnswers
       };
     });
 
@@ -499,7 +520,7 @@ exports.getExamActivity = async (req, res) => {
         .sort({ startTime: -1 });
     }
 
-    // Format active sessions with live tracking indicators
+    // Format active sessions with live tracking indicators and live questions data
     const inProgressItems = activeSessions.map(s => {
       const elapsedSeconds = Math.max(0, Math.round((Date.now() - new Date(s.startTime)) / 1000));
       const m = Math.floor(elapsedSeconds / 60);
@@ -513,6 +534,27 @@ exports.getExamActivity = async (req, res) => {
       const remM = Math.floor(remainingSeconds / 60);
       const remSec = remainingSeconds % 60;
       const timeRemainingFormatted = remM + ':' + String(remSec).padStart(2, '0');
+
+      const sessionAnswers = (s.questionsData || []).map((q, qIdx) => {
+        const qIdStr = q.questionId ? q.questionId.toString() : String(qIdx);
+        let selectedIndex = null;
+        if (s.answers) {
+          if (s.answers instanceof Map && s.answers.has(qIdStr)) {
+            selectedIndex = s.answers.get(qIdStr);
+          } else if (typeof s.answers === 'object' && s.answers[qIdStr] !== undefined) {
+            selectedIndex = s.answers[qIdStr];
+          }
+        }
+        return {
+          questionId: q.questionId,
+          question: q.question,
+          options: q.options || [],
+          selectedIndex: selectedIndex !== null && selectedIndex !== undefined ? Number(selectedIndex) : null,
+          correctIndex: null,
+          isCorrect: null,
+          isMarkedForReview: s.markedForReview ? (s.markedForReview instanceof Map ? !!s.markedForReview.get(qIdStr) : !!s.markedForReview[qIdStr]) : false
+        };
+      });
 
       return {
         id: s.sessionId,
@@ -536,7 +578,7 @@ exports.getExamActivity = async (req, res) => {
         timeRemaining: timeRemainingFormatted,
         timeRemainingSeconds: remainingSeconds,
         warnings: s.warnings || 0,
-        answers: []
+        answers: sessionAnswers
       };
     });
 
