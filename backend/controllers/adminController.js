@@ -152,6 +152,12 @@ exports.getAdminStats = async (req, res) => {
     const currentlyActiveExams = await ExamSession.countDocuments({ status: 'active', expiresAt: { $gt: new Date() } });
     const passedAttempts = await Result.countDocuments({ status: 'Passed' });
     const failedAttempts = await Result.countDocuments({ status: 'Failed' });
+    const totalRetakes = await Result.countDocuments({ $or: [{ isRetake: true }, { attemptNumber: { $gt: 1 } }] });
+    const activeRetakes = await ExamSession.countDocuments({
+      status: 'active',
+      expiresAt: { $gt: new Date() },
+      $or: [{ isRetake: true }, { attemptNumber: { $gt: 1 } }]
+    });
 
     // Calculate average score & percentage
     const avgStats = await Result.aggregate([
@@ -192,6 +198,8 @@ exports.getAdminStats = async (req, res) => {
       completedExams: totalAttempts,
       passedAttempts,
       failedAttempts,
+      totalRetakes,
+      activeRetakes,
       passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0,
       avgPercentage: avgStats.length > 0 ? Math.round(avgStats[0].avgPercentage || 0) : 0,
       avgScore: avgStats.length > 0 ? Math.round((avgStats[0].avgScore || 0) * 10) / 10 : 0,
@@ -214,6 +222,8 @@ exports.getAdminStats = async (req, res) => {
       averageScore: statsData.averageScore,
       totalQuestions,
       totalAttempts,
+      totalRetakes,
+      activeRetakes,
       passedAttempts,
       failedAttempts,
       passRate: statsData.passRate,
@@ -309,16 +319,28 @@ exports.getStudentsList = async (req, res) => {
       if (item._id) resultCountMap.set(String(item._id).toLowerCase(), item.count);
     });
 
+    const activeExam = await Exam.findOne({ isActive: true });
+
     const enrichedStudents = students.map(s => {
       const sId = s._id.toString().toLowerCase();
       const sUser = (s.username || '').toLowerCase();
       const attempts = sessionCountMap.get(sId) || sessionCountMap.get(sUser) || 0;
       const completed = resultCountMap.get(sId) || resultCountMap.get(sUser) || 0;
 
+      let bonusRetakes = 0;
+      if (activeExam && activeExam.retakesGranted) {
+        const entry = activeExam.retakesGranted.find(r => r.student && r.student.toString() === s._id.toString());
+        if (entry) bonusRetakes = entry.additionalAttempts || 0;
+      }
+      const maxAllowed = (activeExam ? (activeExam.maxAttempts || 1) : 1) + bonusRetakes;
+
       return {
         ...s,
         totalAttempts: Math.max(attempts, completed),
-        completedExams: completed
+        completedExams: completed,
+        retakesGranted: bonusRetakes,
+        maxAllowedAttempts: maxAllowed,
+        canRetake: completed < maxAllowed
       };
     });
 
@@ -424,6 +446,8 @@ exports.getStudentProfile = async (req, res) => {
         dateTime: s.startTime,
         timeTaken: 'Active',
         warnings: s.warnings || 0,
+        attemptNumber: s.attemptNumber || 1,
+        isRetake: s.isRetake || ((s.attemptNumber || 1) > 1),
         isActive: true,
         answers: sessionAnswers
       };
@@ -454,6 +478,8 @@ exports.getStudentProfile = async (req, res) => {
         dateTime: r.dateTime || r.createdAt,
         timeTaken: r.timeTaken,
         warnings: r.warnings || 0,
+        attemptNumber: r.attemptNumber || 1,
+        isRetake: r.isRetake || ((r.attemptNumber || 1) > 1),
         isActive: false,
         answers: r.answers || []
       };
@@ -602,8 +628,12 @@ exports.getExamActivity = async (req, res) => {
         { examTitle: regex }
       ];
     }
-    if (status && status !== 'all' && (status === 'Passed' || status === 'Failed')) {
-      resultQuery.status = status;
+    if (status && status !== 'all') {
+      if (status === 'Passed' || status === 'Failed') {
+        resultQuery.status = status;
+      } else if (status === 'Retake') {
+        resultQuery.$or = [{ isRetake: true }, { attemptNumber: { $gt: 1 } }];
+      }
     }
 
     const results = await Result.find(resultQuery).sort({ createdAt: -1 });
@@ -617,9 +647,12 @@ exports.getExamActivity = async (req, res) => {
         { username: regex }
       ];
     }
+    if (status === 'Retake') {
+      sessionQuery.$or = [{ isRetake: true }, { attemptNumber: { $gt: 1 } }];
+    }
 
     let activeSessions = [];
-    if (!status || status === 'all' || status === 'Active') {
+    if (!status || status === 'all' || status === 'Active' || status === 'Retake') {
       activeSessions = await ExamSession.find(sessionQuery)
         .populate('student', 'email')
         .populate('exam', 'title')
@@ -684,6 +717,8 @@ exports.getExamActivity = async (req, res) => {
         timeRemaining: timeRemainingFormatted,
         timeRemainingSeconds: remainingSeconds,
         warnings: s.warnings || 0,
+        attemptNumber: s.attemptNumber || 1,
+        isRetake: s.isRetake || ((s.attemptNumber || 1) > 1),
         answers: sessionAnswers
       };
     });
@@ -713,6 +748,8 @@ exports.getExamActivity = async (req, res) => {
       timeTaken: r.timeTaken,
       timeRemaining: '0:00',
       warnings: r.warnings || 0,
+      attemptNumber: r.attemptNumber || 1,
+      isRetake: r.isRetake || ((r.attemptNumber || 1) > 1),
       answers: r.answers || []
     }));
 
@@ -721,8 +758,14 @@ exports.getExamActivity = async (req, res) => {
       combinedActivity = inProgressItems;
     } else if (status === 'Passed' || status === 'Failed') {
       combinedActivity = completedItems;
+    } else if (status === 'Retake') {
+      combinedActivity = [...inProgressItems, ...completedItems].filter(i => i.isRetake || (i.attemptNumber && i.attemptNumber > 1));
     } else {
       combinedActivity = [...inProgressItems, ...completedItems];
+    }
+
+    if (search && /retake/i.test(search.trim())) {
+      combinedActivity = combinedActivity.filter(i => i.isRetake || (i.attemptNumber && i.attemptNumber > 1));
     }
 
     let paginatedActivity = combinedActivity;
@@ -1195,6 +1238,95 @@ exports.deleteAdminAccount = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete admin account.' });
+  }
+};
+
+// @desc    Admin grants extra attempt / retake permission to a student
+// @route   POST /api/admin/students/:id/grant-retake
+// @access  Protected Admin
+exports.grantStudentRetake = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+    const { examId, additionalAttempts, reason } = req.body;
+
+    let studentDoc = null;
+    if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
+      studentDoc = await User.findById(studentId);
+    }
+    if (!studentDoc && studentId) {
+      studentDoc = await User.findOne({ username: studentId, role: 'student' });
+    }
+    if (!studentDoc) {
+      return res.status(404).json({ success: false, message: 'Student account not found.' });
+    }
+
+    let targetExam = null;
+    if (examId && mongoose.Types.ObjectId.isValid(examId)) {
+      targetExam = await Exam.findById(examId);
+    } else {
+      targetExam = await Exam.findOne({ isActive: true });
+    }
+
+    if (!targetExam) {
+      return res.status(404).json({ success: false, message: 'Active examination not found.' });
+    }
+
+    const attemptsToAdd = Math.max(1, parseInt(additionalAttempts, 10) || 1);
+
+    if (!targetExam.retakesGranted) targetExam.retakesGranted = [];
+
+    const existingIndex = targetExam.retakesGranted.findIndex(
+      r => r.student && r.student.toString() === studentDoc._id.toString()
+    );
+
+    if (existingIndex !== -1) {
+      targetExam.retakesGranted[existingIndex].additionalAttempts += attemptsToAdd;
+      targetExam.retakesGranted[existingIndex].reason = reason || 'Admin granted additional attempt';
+      targetExam.retakesGranted[existingIndex].grantedAt = new Date();
+    } else {
+      targetExam.retakesGranted.push({
+        student: studentDoc._id,
+        additionalAttempts: attemptsToAdd,
+        grantedAt: new Date(),
+        reason: reason || 'Admin granted additional attempt'
+      });
+    }
+
+    await targetExam.save();
+
+    const totalAllowed = (targetExam.maxAttempts || 1) + 
+      ((targetExam.retakesGranted.find(r => r.student && r.student.toString() === studentDoc._id.toString()))?.additionalAttempts || 0);
+
+    // Audit log
+    await AuditLog.create({
+      action: 'GRANT_RETAKE',
+      performedBy: req.user._id,
+      adminUsername: req.user.username,
+      targetType: 'User',
+      targetId: studentDoc._id.toString(),
+      details: {
+        studentUsername: studentDoc.username,
+        studentFullName: studentDoc.fullName,
+        examId: targetExam._id,
+        examTitle: targetExam.title,
+        additionalAttemptsGranted: attemptsToAdd,
+        totalAllowedAttempts: totalAllowed
+      },
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      message: `Granted ${attemptsToAdd} additional attempt(s) to ${studentDoc.fullName} (@${studentDoc.username}). Total attempts allowed: ${totalAllowed}.`,
+      studentId: studentDoc._id,
+      studentName: studentDoc.fullName,
+      totalAllowedAttempts: totalAllowed,
+      retakesGranted: attemptsToAdd
+    });
+  } catch (error) {
+    console.error('Grant student retake error:', error);
+    res.status(500).json({ success: false, message: 'Failed to grant student retake.' });
   }
 };
 

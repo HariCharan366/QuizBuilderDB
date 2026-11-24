@@ -202,6 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
         setVal("stat-pass-count", s.passedAttempts !== undefined ? s.passedAttempts : 0);
         setVal("stat-fail-count", s.failedAttempts !== undefined ? s.failedAttempts : 0);
         setVal("stat-total-attempts", s.totalAttempts !== undefined ? s.totalAttempts : 0);
+        const activeRetakeNote = s.activeRetakes > 0 ? ` (${s.activeRetakes} live)` : '';
+        setVal("stat-retakes-count", (s.totalRetakes !== undefined ? s.totalRetakes : 0) + activeRetakeNote);
 
         const summaryLine = document.getElementById("results-summary-line");
         if (summaryLine && s.totalAttempts !== undefined) {
@@ -589,6 +591,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ? `<button class="btn btn-ghost btn-sm" data-toggle-activity="${idx}" style="font-size:0.75rem; padding:2px 6px; margin-left:4px;">${isExpanded ? 'Collapse' : 'Inline'}</button>`
         : '';
 
+      const isRetake = item.isRetake || (item.attemptNumber && item.attemptNumber > 1);
+      const attemptBadge = isRetake
+        ? `<br><span style="display:inline-block; margin-top:3px; background:#fef3c7; color:#92400e; padding:2px 7px; border-radius:10px; font-size:0.73rem; font-weight:700; border:1px solid #fde68a;">🔄 Attempt #${item.attemptNumber || 2} (Retake)</span>`
+        : `<br><span style="display:inline-block; margin-top:3px; background:#f1f5f9; color:#475569; padding:2px 7px; border-radius:10px; font-size:0.73rem; font-weight:600;">Attempt #1</span>`;
+
       return `
         <tr>
           <td style="color:var(--gray-600);">${idx + 1}</td>
@@ -597,7 +604,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <small style="color:var(--gray-600);">@${escapeHtml(item.username || "—")}</small>
           </td>
           <td>${escapeHtml(item.email || "—")}</td>
-          <td>${escapeHtml(item.examName || "Programming Fundamentals")}</td>
+          <td>
+            <strong>${escapeHtml(item.examName || "Programming Fundamentals")}</strong>
+            ${attemptBadge}
+          </td>
           <td><strong>${escapeHtml(item.score || "—")}</strong>${answeredInfo}</td>
           <td>${statusBadge}${warningBadge}</td>
           <td>${timingInfo}</td>
@@ -756,6 +766,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const toggleActionText = isBlocked ? "Unblock" : "Block";
       const toggleBtnClass = isBlocked ? "btn-outline" : "btn-ghost";
 
+      const totalAllowed = s.maxAllowedAttempts || 1;
+      const attemptsUsed = s.totalAttempts || 0;
+      const retakesTag = s.retakesGranted > 0 
+        ? `<br><small style="color:#d97706; font-weight:700;">(+${s.retakesGranted} retake granted)</small>` 
+        : '';
+
       return `
         <tr>
           <td>
@@ -764,11 +780,12 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
           <td>${escapeHtml(s.email || "?")}</td>
           <td><small>${formatDateTimeA(s.createdAt)}</small></td>
-          <td style="text-align:center;"><strong>${s.totalAttempts || 0}</strong></td>
+          <td style="text-align:center;"><strong>${attemptsUsed}</strong> / ${totalAllowed}${retakesTag}</td>
           <td style="text-align:center;"><strong>${s.completedExams || 0}</strong></td>
           <td>${statusBadge}</td>
           <td style="text-align:right; white-space:nowrap;">
-            <button class="btn btn-sm btn-ghost view-history-btn" data-student-id="${s._id || s.username}" data-student-name="${escapeHtml(s.fullName || s.username)}" data-student-username="${escapeHtml(s.username || '')}">?? History</button>
+            <button class="btn btn-sm btn-ghost view-history-btn" data-student-id="${s._id || s.username}" data-student-name="${escapeHtml(s.fullName || s.username)}" data-student-username="${escapeHtml(s.username || '')}">📜 History</button>
+            <button class="btn btn-sm btn-outline grant-retake-btn" data-student-id="${s._id || s.username}" data-student-name="${escapeHtml(s.fullName || s.username)}" title="Grant additional attempt to this student">🔄 Grant Retake</button>
             <button class="btn btn-sm ${toggleBtnClass} toggle-block-btn" data-student-id="${s._id || s.username}">${toggleActionText}</button>
             <button class="btn btn-sm btn-danger delete-student-btn" data-student-id="${s._id || s.username}" data-student-name="${escapeHtml(s.fullName || s.username)}">Delete</button>
           </td>
@@ -783,7 +800,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <th>Student Name</th>
               <th>Email</th>
               <th>Registered</th>
-              <th style="text-align:center;">Attempts</th>
+              <th style="text-align:center;">Attempts (Used / Max)</th>
               <th style="text-align:center;">Completed</th>
               <th>Status</th>
               <th style="text-align:right;">Actions</th>
@@ -846,7 +863,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 return `
                   <tr>
                     <td>${hi + 1}</td>
-                    <td><strong>${escapeHtml(h.examTitle || 'Programming Fundamentals')}</strong></td>
+                    <td>
+                      <strong>${escapeHtml(h.examTitle || 'Programming Fundamentals')}</strong>
+                      ${(h.isRetake || (h.attemptNumber && h.attemptNumber > 1)) ? `<br><span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:8px; font-size:0.72rem; font-weight:700; border:1px solid #fde68a;">🔄 Attempt #${h.attemptNumber || 2} (Retake)</span>` : '<br><span style="color:#64748b; font-size:0.72rem;">Attempt #1</span>'}
+                    </td>
                     <td><strong>${statusBadge}</strong></td>
                     <td style="text-align:center;"><strong style="color:#2563eb;">${attempted}</strong> / ${totalQ}</td>
                     <td style="text-align:center;"><strong style="color:#166534;">${isActive ? '—' : correctCount}</strong></td>
@@ -924,6 +944,42 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         } catch (e) {
           console.warn("Toggle block error:", e);
+        }
+      });
+    });
+
+    // Grant Retake listeners
+    list.querySelectorAll(".grant-retake-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const studentId = btn.dataset.studentId;
+        const studentName = btn.dataset.studentName;
+        const confirmMsg = `Grant an additional examination attempt (Retake) to ${studentName}?\n\nEnter number of retake attempts to grant:`;
+        const countInput = prompt(confirmMsg, "1");
+        if (countInput === null) return;
+        const count = parseInt(countInput, 10) || 1;
+
+        const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+        try {
+          const res = await fetch(getApiUrl(`/api/admin/students/${studentId}/grant-retake`), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ additionalAttempts: count })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            alert(data.message || `Successfully granted retake attempt to ${studentName}.`);
+            await loadStudentsFromBackend();
+            await loadAdminStats();
+            if (typeof loadAuditLogs === 'function') loadAuditLogs();
+          } else {
+            alert(data.message || "Failed to grant retake attempt.");
+          }
+        } catch (err) {
+          console.error("Grant retake error:", err);
+          alert("Network error while granting retake.");
         }
       });
     });

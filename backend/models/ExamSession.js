@@ -84,6 +84,14 @@ const examSessionSchema = new mongoose.Schema(
       type: String,
       enum: ['active', 'submitted', 'expired'],
       default: 'active'
+    },
+    attemptNumber: {
+      type: Number,
+      default: 1
+    },
+    isRetake: {
+      type: Boolean,
+      default: false
     }
   },
   {

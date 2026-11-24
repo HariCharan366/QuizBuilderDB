@@ -89,8 +89,11 @@
 
       function renderResultView(result) {
         document.getElementById("result-student-name").textContent = result.studentName || "—";
+        const attemptTag = (result.isRetake || (result.attemptNumber && result.attemptNumber > 1))
+          ? `  •  🔄 Attempt #${result.attemptNumber || 2} (Retake)`
+          : `  •  Attempt #1`;
         document.getElementById("result-meta").textContent =
-          "Submitted on " + formatDateTime(result.dateTime || result.submittedAt) + (result.username ? "  •  Username: " + result.username : "");
+          "Submitted on " + formatDateTime(result.dateTime || result.submittedAt) + (result.username ? "  •  Username: " + result.username : "") + attemptTag;
         const total = result.total || result.totalQuestions || 40;
         const correct = result.correct !== undefined ? result.correct : (result.score || 0);
         const wrong = result.wrong !== undefined ? result.wrong : 0;

@@ -202,6 +202,9 @@ exports.startExamSession = async (req, res) => {
         options: q.options
       }));
 
+      const attemptNum = existingSession.attemptNumber || 1;
+      const isRetake = existingSession.isRetake || attemptNum > 1;
+
       return res.status(200).json({
         success: true,
         message: 'Resuming active examination session.',
@@ -215,6 +218,9 @@ exports.startExamSession = async (req, res) => {
           markedForReview: existingSession.markedForReview || {},
           warnings: existingSession.warnings || 0,
           maxWarnings: existingSession.maxWarnings || maxWarnings,
+          attemptNumber: attemptNum,
+          isRetake,
+          totalAttemptsAllowed: maxAllowedAttempts,
           remainingSeconds,
           expiresAt: existingSession.expiresAt
         }
@@ -274,6 +280,9 @@ exports.startExamSession = async (req, res) => {
     const durationMinutes = exam.durationMinutes || 15;
     const expiresAt = new Date(Date.now() + (durationMinutes * 60 * 1000));
 
+    const currentAttemptNumber = existingResultsCount + 1;
+    const isRetake = currentAttemptNumber > 1;
+
     // 5. STORE SESSION IN MONGODB DATABASE
     const newSession = await ExamSession.create({
       sessionId,
@@ -290,7 +299,9 @@ exports.startExamSession = async (req, res) => {
       expiresAt,
       status: 'active',
       warnings: 0,
-      maxWarnings
+      maxWarnings,
+      attemptNumber: currentAttemptNumber,
+      isRetake
     });
 
     res.status(201).json({
@@ -306,6 +317,9 @@ exports.startExamSession = async (req, res) => {
         markedForReview: {},
         warnings: 0,
         maxWarnings,
+        attemptNumber: currentAttemptNumber,
+        isRetake,
+        totalAttemptsAllowed: maxAllowedAttempts,
         remainingSeconds: durationMinutes * 60,
         expiresAt: newSession.expiresAt
       }

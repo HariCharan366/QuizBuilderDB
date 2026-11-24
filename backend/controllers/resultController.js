@@ -158,6 +158,8 @@ async function evaluateExamSession(session, submittedAnswers = {}, timeTakenSeco
       dateTime: new Date(),
       status,
       warnings: actualWarnings,
+      attemptNumber: session.attemptNumber || 1,
+      isRetake: session.isRetake || ((session.attemptNumber || 1) > 1),
       answers: answerReview
     });
   } catch (createErr) {

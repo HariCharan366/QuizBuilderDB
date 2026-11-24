@@ -94,4 +94,24 @@ describe('QuizBuilder Core Security & API Test Suite', () => {
       expect(res.body.success).toBe(false);
     });
   });
+
+  describe('Retake Permissions & Attempt Tracking', () => {
+    test('GET /api/admin/exam-activity?status=Retake rejects unauthenticated requests with 401', async () => {
+      const res = await request(app).get('/api/admin/exam-activity?status=Retake');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    test('POST /api/admin/students/:id/grant-retake rejects unauthenticated requests with 401', async () => {
+      const res = await request(app).post('/api/admin/students/64b1f8e12345678901234567/grant-retake');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    test('POST /api/exams/:id/grant-retake rejects unauthenticated requests with 401', async () => {
+      const res = await request(app).post('/api/exams/64b1f8e12345678901234567/grant-retake');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+  });
 });

@@ -132,6 +132,13 @@
             <div class="stat-label">Failed Exams</div>
           </div>
         </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:#d97706;">🔄</div>
+          <div>
+            <div class="stat-value" id="stat-retakes-count" style="color:#d97706;">0</div>
+            <div class="stat-label">Retakes (2nd+ Attempts)</div>
+          </div>
+        </div>
       </div>
 
       <!-- Exam Settings -->
@@ -242,9 +249,10 @@
           <input type="text" id="activity-search-input" placeholder="🔍 Search student name, username, email, exam..." style="flex:1; min-width:260px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem;" />
           <select id="activity-status-filter" style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; background:white; cursor:pointer;">
             <option value="all">All Statuses (Completed & Active)</option>
+            <option value="Active">In Progress / Active Only</option>
+            <option value="Retake">🔄 Retakes Only (Attempt #2+)</option>
             <option value="Passed">Passed Only</option>
             <option value="Failed">Failed Only</option>
-            <option value="Active">In Progress / Active Only</option>
           </select>
         </div>
 

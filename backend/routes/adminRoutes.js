@@ -12,6 +12,7 @@ router.get('/students', protect, adminOnly, adminController.getStudentsList);
 router.get('/students/:id', protect, adminOnly, adminController.getStudentProfile);
 router.get('/students/:id/history', protect, adminOnly, adminController.getStudentProfile);
 router.put('/students/:id/toggle-block', protect, adminOnly, adminController.toggleBlockStudent);
+router.post('/students/:id/grant-retake', protect, adminOnly, adminController.grantStudentRetake);
 router.delete('/students/:id', protect, adminOnly, adminController.deleteStudent);
 router.delete('/results', protect, adminOnly, adminController.clearAllResults);
 

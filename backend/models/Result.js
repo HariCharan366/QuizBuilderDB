@@ -90,6 +90,14 @@ const resultSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    attemptNumber: {
+      type: Number,
+      default: 1
+    },
+    isRetake: {
+      type: Boolean,
+      default: false
+    },
     answers: [
       {
         question: String,
