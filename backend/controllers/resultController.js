@@ -18,7 +18,7 @@ async function evaluateExamSession(session, submittedAnswers = {}, timeTakenSeco
   if (existingResult) {
     if (session.status !== 'submitted') {
       session.status = 'submitted';
-      await session.save().catch(() => {});
+      await session.save().catch(() => { });
     }
     const dbExam = await Exam.findById(session.exam);
     return { result: existingResult, isExisting: true, dbExam };
@@ -167,7 +167,7 @@ async function evaluateExamSession(session, submittedAnswers = {}, timeTakenSeco
       const dupResult = await Result.findOne({ session: session._id });
       if (dupResult) {
         session.status = 'submitted';
-        await session.save().catch(() => {});
+        await session.save().catch(() => { });
         return { result: dupResult, isExisting: true, dbExam };
       }
     }
@@ -216,7 +216,7 @@ exports.submitExam = async (req, res) => {
     if (existingResult) {
       if (session.status !== 'submitted') {
         session.status = 'submitted';
-        await session.save().catch(() => {});
+        await session.save().catch(() => { });
       }
       const dbExam = await Exam.findById(session.exam);
       let clientResult = existingResult.toObject();
@@ -347,7 +347,7 @@ exports.getResultById = async (req, res) => {
     // Role-based Privacy: Admin can view any result; students can ONLY view their own
     if (req.user && req.user.role === 'student') {
       const isOwner = (result.student && req.user._id && result.student.toString() === req.user._id.toString()) ||
-                      (result.username && req.user.username && result.username.toLowerCase() === req.user.username.toLowerCase());
+        (result.username && req.user.username && result.username.toLowerCase() === req.user.username.toLowerCase());
       if (!isOwner) {
         return res.status(403).json({
           success: false,

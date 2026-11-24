@@ -158,26 +158,14 @@ exports.startExamSession = async (req, res) => {
       });
     }
 
-    // Check student attempt limits
+    // Count existing attempts for record tracking (students can attempt unlimited times)
     const existingResultsCount = await Result.countDocuments({
       $or: [
         { student: studentId, exam: exam._id },
         { username: studentUsername, exam: exam._id }
       ]
     });
-
-    const retakeDoc = exam.retakesGranted && exam.retakesGranted.find(
-      r => r.student && r.student.toString() === studentId.toString()
-    );
-    const bonusAttempts = retakeDoc ? (retakeDoc.additionalAttempts || 0) : 0;
-    const maxAllowedAttempts = (exam.maxAttempts || 1) + bonusAttempts;
-
-    if (existingResultsCount >= maxAllowedAttempts) {
-      return res.status(403).json({
-        success: false,
-        message: `You have reached the maximum number of attempts (${maxAllowedAttempts}) allowed for this examination.`
-      });
-    }
+    const currentAttemptNumber = existingResultsCount + 1;
 
     const REQUIRED_QUESTIONS = exam.totalQuestions || 40;
     const maxWarnings = exam.maxWarnings || 3;
@@ -220,7 +208,7 @@ exports.startExamSession = async (req, res) => {
           maxWarnings: existingSession.maxWarnings || maxWarnings,
           attemptNumber: attemptNum,
           isRetake,
-          totalAttemptsAllowed: maxAllowedAttempts,
+          totalAttemptsAllowed: 'Unlimited',
           remainingSeconds,
           expiresAt: existingSession.expiresAt
         }
@@ -280,7 +268,6 @@ exports.startExamSession = async (req, res) => {
     const durationMinutes = exam.durationMinutes || 15;
     const expiresAt = new Date(Date.now() + (durationMinutes * 60 * 1000));
 
-    const currentAttemptNumber = existingResultsCount + 1;
     const isRetake = currentAttemptNumber > 1;
 
     // 5. STORE SESSION IN MONGODB DATABASE
@@ -319,7 +306,7 @@ exports.startExamSession = async (req, res) => {
         maxWarnings,
         attemptNumber: currentAttemptNumber,
         isRetake,
-        totalAttemptsAllowed: maxAllowedAttempts,
+        totalAttemptsAllowed: 'Unlimited',
         remainingSeconds: durationMinutes * 60,
         expiresAt: newSession.expiresAt
       }
@@ -827,7 +814,7 @@ exports.importQuestionsCSV = async (req, res) => {
     for (let i = 1; i < parsedRows.length; i++) {
       const lineNum = i + 1;
       const row = parsedRows[i];
-      
+
       const questionText = row[0];
       const optA = row[1];
       const optB = row[2];

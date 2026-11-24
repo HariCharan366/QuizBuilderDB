@@ -159,12 +159,7 @@ async function initExamSession() {
 
       const attemptBadgeEl = document.getElementById("exam-attempt-badge");
       if (attemptBadgeEl) {
-        const isRetake = data.session.isRetake || (data.session.attemptNumber && data.session.attemptNumber > 1);
-        if (isRetake) {
-          attemptBadgeEl.innerHTML = `<span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:10px; font-weight:700;">🔄 Attempt #${data.session.attemptNumber || 2} (Retake)</span>`;
-        } else {
-          attemptBadgeEl.innerHTML = `<span>Secure Assessment • Attempt #1</span>`;
-        }
+        attemptBadgeEl.innerHTML = `<span>Secure Assessment • Attempt #${data.session.attemptNumber || 1}</span>`;
       }
       if (data.session.durationMinutes) {
         EXAM_SECONDS = data.session.durationMinutes * 60;
