@@ -321,16 +321,16 @@ exports.changePassword = async (req, res) => {
 // @access  Public
 exports.forgotPassword = async (req, res) => {
   try {
-    const { identifier } = req.body;
+    const rawIdentifier = req.body.identifier || req.body.emailOrUsername;
 
-    if (!identifier) {
+    if (!rawIdentifier) {
       return res.status(400).json({
         success: false,
         message: 'Please provide your registered username or email.'
       });
     }
 
-    const clean = String(identifier).trim().toLowerCase();
+    const clean = String(rawIdentifier).trim().toLowerCase();
 
     // Security requirement: Only students can use this reset flow. Admin password recovery is strictly prohibited.
     const user = await User.findOne({
@@ -397,7 +397,8 @@ exports.forgotPassword = async (req, res) => {
 // @access  Public
 exports.resetPassword = async (req, res) => {
   try {
-    const { resetToken, newPassword } = req.body;
+    const resetToken = req.body.resetToken || req.body.token;
+    const { newPassword } = req.body;
 
     if (!resetToken || !newPassword) {
       return res.status(400).json({

@@ -103,6 +103,69 @@ describe('QuizBuilder Core Security & API Test Suite', () => {
     });
   });
 
+  describe('Password Recovery Input Validation', () => {
+    test('POST /api/auth/forgot-password rejects missing identifier with 400', async () => {
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({});
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('username or email');
+    });
+
+    test('POST /api/auth/reset-password rejects missing token with 400', async () => {
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ newPassword: 'ValidPassword123' });
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('token');
+    });
+
+    test('POST /api/auth/reset-password rejects short new password with 400', async () => {
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'sample-token-123', newPassword: '123' });
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('Frontend Static Asset Delivery', () => {
+    test('Delivers index.html with 200 status', async () => {
+      const res = await request(app).get('/index.html');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('Quiz Builder');
+    });
+
+    test('Delivers admin.html with 200 status', async () => {
+      const res = await request(app).get('/admin.html');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('Admin');
+    });
+
+    test('Delivers exam.html with 200 status', async () => {
+      const res = await request(app).get('/exam.html');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('SECURE EXAM');
+    });
+
+    test('Delivers result.html with 200 status', async () => {
+      const res = await request(app).get('/result.html');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('EXAM COMPLETED');
+    });
+  });
+
+  describe('API 404 Routing', () => {
+    test('Unmatched /api/* routes return JSON 404', async () => {
+      const res = await request(app).get('/api/non-existent-endpoint');
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('not found');
+    });
+  });
+
   describe('Attempt Tracking & Endpoint Security', () => {
     test('POST /api/admin/students/:id/grant-retake rejects unauthenticated requests with 401', async () => {
       const res = await request(app).post('/api/admin/students/64b1f8e12345678901234567/grant-retake');

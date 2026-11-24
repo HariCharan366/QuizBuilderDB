@@ -56,21 +56,43 @@ router.put(
 router.post(
   '/forgot-password',
   authLimiter,
-  [
-    body('emailOrUsername').trim().notEmpty().withMessage('Please provide your registered username or email address')
-  ],
-  validate,
+  (req, res, next) => {
+    const val = req.body.identifier || req.body.emailOrUsername;
+    if (!val || typeof val !== 'string' || !val.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your registered username or email address'
+      });
+    }
+    req.body.identifier = val.trim();
+    req.body.emailOrUsername = val.trim();
+    next();
+  },
   authController.forgotPassword
 );
 
 router.post(
   '/reset-password',
   authLimiter,
-  [
-    body('token').trim().notEmpty().withMessage('Password reset token is required'),
-    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters long')
-  ],
-  validate,
+  (req, res, next) => {
+    const token = req.body.resetToken || req.body.token;
+    if (!token || typeof token !== 'string' || !token.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset token is required'
+      });
+    }
+    req.body.resetToken = token.trim();
+    req.body.token = token.trim();
+
+    if (!req.body.newPassword || typeof req.body.newPassword !== 'string' || req.body.newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long'
+      });
+    }
+    next();
+  },
   authController.resetPassword
 );
 
