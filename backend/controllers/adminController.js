@@ -198,23 +198,76 @@ exports.getStudentsList = async (req, res) => {
       .lean();
 
     const studentIds = students.map(s => s._id);
+    const usernames = students.map(s => (s.username || '').toLowerCase());
+
     const sessionCounts = await ExamSession.aggregate([
-      { $match: { student: { $in: studentIds } } },
-      { $group: { _id: '$student', count: { $sum: 1 } } }
+      {
+        $match: {
+          $or: [
+            { student: { $in: studentIds } },
+            { username: { $in: usernames } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $ifNull: ['$student', false] },
+              { $toString: '$student' },
+              { $toLower: '$username' }
+            ]
+          },
+          count: { $sum: 1 }
+        }
+      }
     ]);
+
     const resultCounts = await Result.aggregate([
-      { $match: { student: { $in: studentIds } } },
-      { $group: { _id: '$student', count: { $sum: 1 } } }
+      {
+        $match: {
+          $or: [
+            { student: { $in: studentIds } },
+            { username: { $in: usernames } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $ifNull: ['$student', false] },
+              { $toString: '$student' },
+              { $toLower: '$username' }
+            ]
+          },
+          count: { $sum: 1 }
+        }
+      }
     ]);
 
-    const sessionCountMap = new Map(sessionCounts.map(item => [item._id.toString(), item.count]));
-    const resultCountMap = new Map(resultCounts.map(item => [item._id.toString(), item.count]));
+    const sessionCountMap = new Map();
+    sessionCounts.forEach(item => {
+      if (item._id) sessionCountMap.set(String(item._id).toLowerCase(), item.count);
+    });
 
-    const enrichedStudents = students.map(s => ({
-      ...s,
-      totalAttempts: sessionCountMap.get(s._id.toString()) || 0,
-      completedExams: resultCountMap.get(s._id.toString()) || 0
-    }));
+    const resultCountMap = new Map();
+    resultCounts.forEach(item => {
+      if (item._id) resultCountMap.set(String(item._id).toLowerCase(), item.count);
+    });
+
+    const enrichedStudents = students.map(s => {
+      const sId = s._id.toString().toLowerCase();
+      const sUser = (s.username || '').toLowerCase();
+      const attempts = sessionCountMap.get(sId) || sessionCountMap.get(sUser) || 0;
+      const completed = resultCountMap.get(sId) || resultCountMap.get(sUser) || 0;
+
+      return {
+        ...s,
+        totalAttempts: Math.max(attempts, completed),
+        completedExams: completed
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -240,13 +293,94 @@ exports.getStudentProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    const examHistory = await Result.find({ username: student.username }).sort({ createdAt: -1 });
+    const studentUsername = (student.username || '').toLowerCase();
+
+    // 1. Fetch completed results matching student ID or username
+    const results = await Result.find({
+      $or: [
+        { student: student._id },
+        { username: studentUsername },
+        { username: student.username }
+      ]
+    }).sort({ createdAt: -1 });
+
+    // 2. Fetch active sessions matching student ID or username
+    const activeSessions = await ExamSession.find({
+      $or: [
+        { student: student._id },
+        { username: studentUsername },
+        { username: student.username }
+      ],
+      status: 'active',
+      expiresAt: { $gt: new Date() }
+    }).sort({ startTime: -1 });
+
+    // Format active sessions into unified history entries
+    const activeHistory = activeSessions.map(s => {
+      const answeredCount = s.answers ? (s.answers instanceof Map ? s.answers.size : Object.keys(s.answers).length) : 0;
+      const totalQ = (s.questionsData && s.questionsData.length) || 40;
+      return {
+        id: s.sessionId,
+        sessionId: s.sessionId,
+        examTitle: 'Programming Fundamentals Examination',
+        score: 'In Progress ⏳',
+        rawScore: null,
+        total: totalQ,
+        totalQuestions: totalQ,
+        percentage: 0,
+        correct: 0,
+        wrong: 0,
+        unanswered: Math.max(0, totalQ - answeredCount),
+        questionsAttempted: answeredCount,
+        questionsAnswered: answeredCount,
+        questionsUnanswered: Math.max(0, totalQ - answeredCount),
+        status: 'In Progress',
+        submittedAt: null,
+        dateTime: s.startTime,
+        timeTaken: 'Active',
+        warnings: s.warnings || 0,
+        isActive: true,
+        answers: []
+      };
+    });
+
+    // Format completed results with explicit attempted, answered, and unanswered metrics
+    const completedHistory = results.map(r => {
+      const attempted = (r.correct || 0) + (r.wrong || 0);
+      const totalQ = r.total || 40;
+      const unans = r.unanswered !== undefined ? r.unanswered : Math.max(0, totalQ - attempted);
+
+      return {
+        id: r.id,
+        _id: r._id,
+        examTitle: r.examTitle || 'Programming Fundamentals Examination',
+        score: r.score,
+        total: totalQ,
+        totalQuestions: totalQ,
+        percentage: r.percentage,
+        correct: r.correct,
+        wrong: r.wrong,
+        unanswered: unans,
+        questionsAttempted: attempted,
+        questionsAnswered: attempted,
+        questionsUnanswered: unans,
+        status: r.status,
+        submittedAt: r.submittedAt,
+        dateTime: r.dateTime || r.createdAt,
+        timeTaken: r.timeTaken,
+        warnings: r.warnings || 0,
+        isActive: false,
+        answers: r.answers || []
+      };
+    });
+
+    const combinedHistory = [...activeHistory, ...completedHistory];
 
     res.status(200).json({
       success: true,
       student,
-      examHistory,
-      results: examHistory
+      examHistory: combinedHistory,
+      results: combinedHistory
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to retrieve student profile.' });

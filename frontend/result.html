@@ -28,12 +28,20 @@
           <div class="rlabel">Total Questions</div>
         </div>
         <div class="rstat">
-          <div class="rval" id="stat-correct">0</div>
+          <div class="rval" id="stat-attempted" style="color:#2563eb;">0</div>
+          <div class="rlabel">Questions Attempted</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-correct" style="color:#166534;">0</div>
           <div class="rlabel">Correct Answers</div>
         </div>
         <div class="rstat">
-          <div class="rval" id="stat-wrong">0</div>
+          <div class="rval" id="stat-wrong" style="color:#991b1b;">0</div>
           <div class="rlabel">Wrong Answers</div>
+        </div>
+        <div class="rstat">
+          <div class="rval" id="stat-unanswered" style="color:var(--gray-600);">0</div>
+          <div class="rlabel">Unanswered</div>
         </div>
         <div class="rstat">
           <div class="rval" id="stat-warnings">0</div>
@@ -83,11 +91,27 @@
         document.getElementById("result-student-name").textContent = result.studentName || "—";
         document.getElementById("result-meta").textContent =
           "Submitted on " + formatDateTime(result.dateTime || result.submittedAt) + (result.username ? "  •  Username: " + result.username : "");
-        document.getElementById("result-score").textContent = result.score;
-        document.getElementById("result-total-slash").textContent = "/ " + result.total;
-        document.getElementById("stat-total").textContent = result.total;
-        document.getElementById("stat-correct").textContent = result.correct;
-        document.getElementById("stat-wrong").textContent = result.wrong;
+        const total = result.total || result.totalQuestions || 40;
+        const correct = result.correct !== undefined ? result.correct : (result.score || 0);
+        const wrong = result.wrong !== undefined ? result.wrong : 0;
+        const attempted = result.questionsAttempted !== undefined
+          ? result.questionsAttempted
+          : (correct + wrong);
+        const unanswered = result.unanswered !== undefined
+          ? result.unanswered
+          : Math.max(0, total - attempted);
+
+        document.getElementById("result-score").textContent = correct;
+        document.getElementById("result-total-slash").textContent = "/ " + total;
+        document.getElementById("stat-total").textContent = total;
+        if (document.getElementById("stat-attempted")) {
+          document.getElementById("stat-attempted").textContent = `${attempted} / ${total}`;
+        }
+        document.getElementById("stat-correct").textContent = correct;
+        document.getElementById("stat-wrong").textContent = wrong;
+        if (document.getElementById("stat-unanswered")) {
+          document.getElementById("stat-unanswered").textContent = unanswered;
+        }
         document.getElementById("stat-warnings").textContent = (result.warnings || 0) + "/3";
         document.getElementById("stat-time").textContent = formatDuration(result.timeTakenSeconds || 0);
 

@@ -319,9 +319,15 @@ document.addEventListener("DOMContentLoaded", () => {
         ? `<button class="btn btn-ghost btn-sm" data-toggle-activity="${idx}">View Answers</button>`
         : '<span style="font-size:0.8rem; color:var(--gray-600);">?</span>';
 
+      const totalQ = item.totalQuestions || 40;
+      const attemptedCount = (item.correct !== undefined && item.wrong !== undefined)
+        ? (item.correct + item.wrong)
+        : (item.questionsAnswered !== undefined ? item.questionsAnswered : 0);
+      const unansCount = item.unanswered !== undefined ? item.unanswered : Math.max(0, totalQ - attemptedCount);
+
       const answeredInfo = isActive
-        ? `<br><small style="color:#2563eb; font-weight:600;">${item.questionsAnswered !== undefined ? item.questionsAnswered : 0}/${item.totalQuestions || 40} answered</small>`
-        : (item.correct !== undefined ? `<br><small style="color:var(--gray-600);">${item.correct} correct ? ${item.wrong} wrong</small>` : '');
+        ? `<br><small style="color:#2563eb; font-weight:600;">⏳ ${attemptedCount}/${totalQ} questions answered</small>`
+        : `<br><small style="color:#2563eb; font-weight:600;">📝 Attempted: ${attemptedCount}/${totalQ}</small><br><small style="color:var(--gray-600);">${item.correct || 0} correct • ${item.wrong || 0} wrong • ${unansCount} unanswered</small>`;
 
       const timingInfo = isActive
         ? `<small>${formatDateTimeA(item.dateTime)}</small><br><small style="color:#b45309; font-weight:600;">? Rem: ${escapeHtml(item.timeRemaining || '0:00')}</small>`
@@ -549,38 +555,85 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
               const hRows = data.examHistory.map((h, hi) => {
                 const isPass = h.status === 'Passed';
+                const isActive = h.status === 'In Progress' || h.isActive === true;
+                const statusBadge = isActive
+                  ? '<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">In Progress</span>'
+                  : isPass
+                  ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Passed</span>'
+                  : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Failed</span>';
+
+                const totalQ = h.total || h.totalQuestions || 40;
+                const attempted = h.questionsAttempted !== undefined
+                  ? h.questionsAttempted
+                  : ((h.correct || 0) + (h.wrong || 0));
+                const correctCount = h.score !== undefined && typeof h.score === 'number' ? h.score : (h.correct || 0);
+                const wrongCount = h.wrong || 0;
+                const unansCount = h.unanswered !== undefined ? h.unanswered : Math.max(0, totalQ - attempted);
+
+                const hasAnswers = Array.isArray(h.answers) && h.answers.length > 0;
+                const viewAnswersBtn = hasAnswers
+                  ? `<button class="btn btn-ghost btn-sm" data-toggle-sh-answers="${hi}">View Answers</button>`
+                  : '<span style="color:var(--gray-400);">—</span>';
+
                 return `
                   <tr>
                     <td>${hi + 1}</td>
                     <td><strong>${escapeHtml(h.examTitle || 'Programming Fundamentals')}</strong></td>
-                    <td><strong>${h.score}/${h.total}</strong></td>
-                    <td>${h.percentage}%</td>
-                    <td><span style="font-weight:bold; color:${isPass ? '#166534' : '#991b1b'};">${h.status}</span></td>
-                    <td>${formatDateTimeA(h.dateTime || h.submittedAt)}</td>
-                    <td>${escapeHtml(h.timeTaken || '0:00')}</td>
-                    <td>${h.warnings || 0}/3</td>
+                    <td><strong>${statusBadge}</strong></td>
+                    <td style="text-align:center;"><strong style="color:#2563eb;">${attempted}</strong> / ${totalQ}</td>
+                    <td style="text-align:center;"><strong style="color:#166534;">${isActive ? '—' : correctCount}</strong></td>
+                    <td style="text-align:center;"><span style="color:#991b1b;">${isActive ? '—' : wrongCount}</span></td>
+                    <td style="text-align:center;"><span style="color:var(--gray-600);">${unansCount}</span></td>
+                    <td style="text-align:center;"><strong>${isActive ? '—' : (h.percentage + '%')}</strong></td>
+                    <td><small>${formatDateTimeA(h.dateTime || h.submittedAt)}</small></td>
+                    <td style="text-align:center;">${escapeHtml(h.timeTaken || '0:00')}</td>
+                    <td style="text-align:center;">${h.warnings || 0}/3</td>
+                    <td style="text-align:right;">${viewAnswersBtn}</td>
+                  </tr>
+                  <tr id="sh-answer-row-${hi}" class="hidden" style="background:#f8fafc;">
+                    <td colspan="12" style="padding:14px;">
+                      <div id="sh-answer-detail-${hi}">
+                        ${hasAnswers ? renderDetailedAnswers(h.answers) : ''}
+                      </div>
+                    </td>
                   </tr>
                 `;
               }).join('');
+
               contentEl.innerHTML = `
                 <div style="overflow-x:auto;">
-                  <table class="student-table" style="width:100%; font-size:0.85rem;">
+                  <table class="student-table" style="width:100%; font-size:0.83rem;">
                     <thead>
                       <tr>
                         <th>#</th>
                         <th>Exam Name</th>
-                        <th>Score</th>
-                        <th>%</th>
                         <th>Status</th>
-                        <th>Submitted Date</th>
-                        <th>Duration</th>
-                        <th>Warnings</th>
+                        <th style="text-align:center;">Attempted</th>
+                        <th style="text-align:center;">Correct</th>
+                        <th style="text-align:center;">Wrong</th>
+                        <th style="text-align:center;">Unanswered</th>
+                        <th style="text-align:center;">Score %</th>
+                        <th>Date & Time</th>
+                        <th style="text-align:center;">Duration</th>
+                        <th style="text-align:center;">Warnings</th>
+                        <th style="text-align:right;">Answers</th>
                       </tr>
                     </thead>
                     <tbody>${hRows}</tbody>
                   </table>
                 </div>
               `;
+
+              contentEl.querySelectorAll("[data-toggle-sh-answers]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                  const idx = btn.dataset.toggleShAnswers;
+                  const row = document.getElementById("sh-answer-row-" + idx);
+                  if (row) {
+                    const isHidden = row.classList.toggle("hidden");
+                    btn.textContent = isHidden ? "View Answers" : "Hide Answers";
+                  }
+                });
+              });
             }
           } else {
             contentEl.innerHTML = `<div class="empty-state" style="color:var(--danger);">${data.message || 'Failed to load history.'}</div>`;

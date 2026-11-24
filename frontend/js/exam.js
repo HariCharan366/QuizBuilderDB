@@ -48,7 +48,7 @@ let timerInterval = null;
 let examStartTimestamp = null;
 let lastViolationAt = 0;
 let fiveMinuteWarningShown = false;
-const VIOLATION_DEBOUNCE_MS = 700;
+const VIOLATION_DEBOUNCE_MS = 2500; // 2.5s debounce prevents a single window switch from triggering 3 immediate cascading warnings
 
 /* ---------- DOM references ---------- */
 let els = {};
