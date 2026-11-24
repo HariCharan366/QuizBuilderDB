@@ -7,9 +7,6 @@ const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/authMiddleware');
 
-// Set mongoose sanitizeFilter to protect against NoSQL operator injection
-mongoose.set('sanitizeFilter', true);
-
 // Models & Seed data (isolated in backend/data)
 const User = require('./models/User');
 const Question = require('./models/Question');

@@ -67,6 +67,14 @@ describe('QuizBuilder Core Security & API Test Suite', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+
+    test('POST /api/admin/login rejects missing credentials with 400', async () => {
+      const res = await request(app)
+        .post('/api/admin/login')
+        .send({});
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
   });
 
   describe('Protected Routes Security', () => {

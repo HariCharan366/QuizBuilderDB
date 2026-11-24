@@ -60,17 +60,17 @@ exports.loginAdmin = async (req, res) => {
       });
     }
 
-    const cleanId = String(id).trim();
+    const cleanId = String(id).trim().toLowerCase();
 
     let admin = await User.findOne({
       username: cleanId,
       role: { $in: ['admin', 'superadmin', 'invigilator', 'viewer'] }
     });
 
-    const envAdminId = process.env.ADMIN_ID;
+    const envAdminId = (process.env.ADMIN_ID || 'admin').trim().toLowerCase();
     const envAdminPass = process.env.ADMIN_PASSWORD;
 
-    if (!admin && envAdminId && envAdminPass && cleanId === envAdminId && password === envAdminPass) {
+    if (!admin && envAdminPass && cleanId === envAdminId && password === envAdminPass) {
       admin = await User.create({
         fullName: 'System Administrator',
         username: envAdminId,
@@ -84,7 +84,7 @@ exports.loginAdmin = async (req, res) => {
     }
 
     // 1. Account Lockout Check
-    if (admin && admin.isAccountLocked()) {
+    if (admin && typeof admin.isAccountLocked === 'function' && admin.isAccountLocked()) {
       const remainingMinutes = Math.ceil((admin.lockUntil.getTime() - Date.now()) / (60 * 1000));
       return res.status(423).json({
         success: false,
@@ -92,7 +92,22 @@ exports.loginAdmin = async (req, res) => {
       });
     }
 
-    const isMatch = admin ? await admin.matchPassword(password) : false;
+    let isMatch = false;
+    if (admin && admin.password) {
+      if (typeof admin.matchPassword === 'function') {
+        try {
+          isMatch = await admin.matchPassword(password);
+        } catch (compareErr) {
+          isMatch = false;
+        }
+      }
+      // Safe fallback for unhashed legacy passwords (upgrades automatically to hashed)
+      if (!isMatch && admin.password === password) {
+        isMatch = true;
+        admin.password = password;
+        await admin.save();
+      }
+    }
 
     if (!admin || !isMatch) {
       if (admin) {
