@@ -245,14 +245,13 @@ exports.startExamSession = async (req, res) => {
 
     randomQuestions.forEach((q, idx) => {
       const baseOptions = [q.optionA, q.optionB, q.optionC, q.optionD];
-      const mapping = shuffle([0, 1, 2, 3]);
-      const shuffledOptions = mapping.map(origIdx => baseOptions[origIdx]);
+      const mapping = [0, 1, 2, 3];
 
       questionsDataForDb.push({
         questionId: q._id,
         index: idx + 1,
         question: q.question,
-        options: shuffledOptions,
+        options: baseOptions,
         optionMapping: mapping
       });
 
@@ -260,7 +259,7 @@ exports.startExamSession = async (req, res) => {
         questionId: q._id,
         index: idx + 1,
         question: q.question,
-        options: shuffledOptions
+        options: baseOptions
       });
     });
 

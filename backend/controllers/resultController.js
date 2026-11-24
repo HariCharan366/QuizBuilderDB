@@ -57,54 +57,76 @@ async function evaluateExamSession(session, submittedAnswers = {}, timeTakenSeco
     _id: { $in: session.questionIds }
   }).select('+correct');
 
-  // Build mapping from session questions data
-  const sessionQMap = new Map();
-  if (Array.isArray(session.questionsData)) {
-    session.questionsData.forEach(sq => {
-      if (sq.questionId) sessionQMap.set(sq.questionId.toString(), sq);
+  const questionMap = new Map();
+  originalQuestions.forEach(q => questionMap.set(q._id.toString(), q));
+
+  // Maintain the EXACT sequence of questions the student received at the start
+  let orderedList = [];
+  if (Array.isArray(session.questionsData) && session.questionsData.length > 0) {
+    orderedList = session.questionsData;
+  } else if (Array.isArray(session.questionIds) && session.questionIds.length > 0) {
+    orderedList = session.questionIds.map((qId, idx) => {
+      const q = questionMap.get(qId.toString());
+      return {
+        questionId: qId,
+        index: idx + 1,
+        question: q ? q.question : '',
+        options: q ? [q.optionA, q.optionB, q.optionC, q.optionD] : []
+      };
     });
+  } else {
+    orderedList = originalQuestions.map((q, idx) => ({
+      questionId: q._id,
+      index: idx + 1,
+      question: q.question,
+      options: [q.optionA, q.optionB, q.optionC, q.optionD]
+    }));
   }
 
   let correct = 0;
   let wrong = 0;
   let unanswered = 0;
-  const total = originalQuestions.length || (session.questionIds ? session.questionIds.length : 40);
+  const total = orderedList.length || 40;
 
-  const answerReview = originalQuestions.map((q) => {
-    const qId = q._id.toString();
-    const sqData = sessionQMap.get(qId);
-    const selectedShuffledIndex = userAnswers[qId] !== undefined ? userAnswers[qId] : null;
+  const answerReview = orderedList.map((sq, idx) => {
+    const qIdStr = sq.questionId ? sq.questionId.toString() : '';
+    const q = questionMap.get(qIdStr);
+    const selectedShuffledIndex = userAnswers[qIdStr] !== undefined ? userAnswers[qIdStr] : null;
     const isAnswered = selectedShuffledIndex !== null && !isNaN(selectedShuffledIndex);
 
-    // Map student's chosen shuffled index back to the original option index (0..3)
     let originalChosenIndex = selectedShuffledIndex;
-    if (isAnswered && sqData && Array.isArray(sqData.optionMapping) && sqData.optionMapping.length === 4) {
-      originalChosenIndex = sqData.optionMapping[selectedShuffledIndex];
+    if (isAnswered && sq.optionMapping && Array.isArray(sq.optionMapping) && sq.optionMapping.length === 4) {
+      originalChosenIndex = sq.optionMapping[selectedShuffledIndex];
     }
 
+    const correctKey = (q && q.correct !== undefined) ? Number(q.correct) : null;
     let isCorrect = false;
     if (!isAnswered) {
       unanswered++;
-    } else if (Number(originalChosenIndex) === Number(q.correct)) {
+    } else if (correctKey !== null && Number(originalChosenIndex) === correctKey) {
       correct++;
       isCorrect = true;
     } else {
       wrong++;
     }
 
-    // Determine correct option index in student's shuffled view for review
-    let correctShuffledIndex = q.correct;
-    if (sqData && Array.isArray(sqData.optionMapping)) {
-      const idx = sqData.optionMapping.indexOf(q.correct);
-      if (idx !== -1) correctShuffledIndex = idx;
+    let correctShuffledIndex = correctKey;
+    if (sq.optionMapping && Array.isArray(sq.optionMapping) && correctKey !== null) {
+      const mappedIdx = sq.optionMapping.indexOf(correctKey);
+      if (mappedIdx !== -1) correctShuffledIndex = mappedIdx;
     }
 
+    const resolvedOptions = (sq.options && Array.isArray(sq.options) && sq.options.length > 0)
+      ? sq.options
+      : (q ? [q.optionA, q.optionB, q.optionC, q.optionD] : []);
+
     return {
-      questionId: q._id,
-      question: q.question,
-      options: sqData ? sqData.options : [q.optionA, q.optionB, q.optionC, q.optionD],
-      selectedIndex: isAnswered ? selectedShuffledIndex : null,
-      correctIndex: correctShuffledIndex,
+      questionId: qIdStr || (q ? q._id : null),
+      index: sq.index || (idx + 1),
+      question: sq.question || (q ? q.question : ''),
+      options: resolvedOptions,
+      selectedIndex: isAnswered ? Number(selectedShuffledIndex) : null,
+      correctIndex: correctShuffledIndex !== null ? Number(correctShuffledIndex) : null,
       isCorrect
     };
   });

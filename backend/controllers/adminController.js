@@ -396,6 +396,14 @@ exports.getStudentProfile = async (req, res) => {
       expiresAt: { $gt: new Date() }
     }).sort({ startTime: -1 });
 
+    // Pre-fetch correct answer keys for active session questions
+    const activeQIds = [...new Set(activeSessions.flatMap(s => s.questionIds || []))];
+    const activeDbQuestions = activeQIds.length > 0
+      ? await Question.find({ _id: { $in: activeQIds } }).select('+correct')
+      : [];
+    const activeQMap = new Map();
+    activeDbQuestions.forEach(q => activeQMap.set(q._id.toString(), q));
+
     // Format active sessions into unified history entries with live question/answers data
     const activeHistory = activeSessions.map(s => {
       const answeredCount = s.answers ? (s.answers instanceof Map ? s.answers.size : Object.keys(s.answers).length) : 0;
@@ -410,13 +418,27 @@ exports.getStudentProfile = async (req, res) => {
             selectedIndex = s.answers[qIdStr];
           }
         }
+        const hasSelected = selectedIndex !== null && selectedIndex !== undefined && !isNaN(selectedIndex);
+        const dbQ = activeQMap.get(qIdStr);
+        const correctKey = (dbQ && dbQ.correct !== undefined) ? Number(dbQ.correct) : null;
+        let correctDisplayIndex = correctKey;
+        if (q.optionMapping && Array.isArray(q.optionMapping) && correctKey !== null) {
+          const mapped = q.optionMapping.indexOf(correctKey);
+          if (mapped !== -1) correctDisplayIndex = mapped;
+        }
+
+        let isCorrect = null;
+        if (hasSelected && correctDisplayIndex !== null) {
+          isCorrect = (Number(selectedIndex) === Number(correctDisplayIndex));
+        }
+
         return {
           questionId: q.questionId,
           question: q.question,
           options: q.options || [],
-          selectedIndex: selectedIndex !== null && selectedIndex !== undefined ? Number(selectedIndex) : null,
-          correctIndex: null,
-          isCorrect: null,
+          selectedIndex: hasSelected ? Number(selectedIndex) : null,
+          correctIndex: correctDisplayIndex,
+          isCorrect,
           isMarkedForReview: s.markedForReview ? (s.markedForReview instanceof Map ? !!s.markedForReview.get(qIdStr) : !!s.markedForReview[qIdStr]) : false
         };
       });
@@ -654,6 +676,14 @@ exports.getExamActivity = async (req, res) => {
         .sort({ startTime: -1 });
     }
 
+    // Pre-fetch correct answer keys for active session questions
+    const actQIds = [...new Set(activeSessions.flatMap(s => s.questionIds || []))];
+    const actDbQuestions = actQIds.length > 0
+      ? await Question.find({ _id: { $in: actQIds } }).select('+correct')
+      : [];
+    const actQMap = new Map();
+    actDbQuestions.forEach(q => actQMap.set(q._id.toString(), q));
+
     // Format active sessions with live tracking indicators and live questions data
     const inProgressItems = activeSessions.map(s => {
       const elapsedSeconds = Math.max(0, Math.round((Date.now() - new Date(s.startTime)) / 1000));
@@ -679,13 +709,27 @@ exports.getExamActivity = async (req, res) => {
             selectedIndex = s.answers[qIdStr];
           }
         }
+        const hasSelected = selectedIndex !== null && selectedIndex !== undefined && !isNaN(selectedIndex);
+        const dbQ = actQMap.get(qIdStr);
+        const correctKey = (dbQ && dbQ.correct !== undefined) ? Number(dbQ.correct) : null;
+        let correctDisplayIndex = correctKey;
+        if (q.optionMapping && Array.isArray(q.optionMapping) && correctKey !== null) {
+          const mapped = q.optionMapping.indexOf(correctKey);
+          if (mapped !== -1) correctDisplayIndex = mapped;
+        }
+
+        let isCorrect = null;
+        if (hasSelected && correctDisplayIndex !== null) {
+          isCorrect = (Number(selectedIndex) === Number(correctDisplayIndex));
+        }
+
         return {
           questionId: q.questionId,
           question: q.question,
           options: q.options || [],
-          selectedIndex: selectedIndex !== null && selectedIndex !== undefined ? Number(selectedIndex) : null,
-          correctIndex: null,
-          isCorrect: null,
+          selectedIndex: hasSelected ? Number(selectedIndex) : null,
+          correctIndex: correctDisplayIndex,
+          isCorrect,
           isMarkedForReview: s.markedForReview ? (s.markedForReview instanceof Map ? !!s.markedForReview.get(qIdStr) : !!s.markedForReview[qIdStr]) : false
         };
       });
