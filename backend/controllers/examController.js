@@ -4,7 +4,10 @@ const Exam = require('../models/Exam');
 const Question = require('../models/Question');
 const ExamSession = require('../models/ExamSession');
 const User = require('../models/User');
-const { DEFAULT_QUESTIONS } = require(path.join(__dirname, '..', '..', 'frontend', 'js', 'questions'));
+const Result = require('../models/Result');
+const AuditLog = require('../models/AuditLog');
+const { evaluateExamSession } = require('./resultController');
+const { DEFAULT_QUESTIONS } = require(path.join(__dirname, '..', 'data', 'seedQuestions'));
 
 // Helper to shuffle array
 function shuffle(array) {
@@ -140,7 +143,44 @@ exports.startExamSession = async (req, res) => {
       });
     }
 
+    // Check Exam Schedule (startDate & endDate)
+    const now = new Date();
+    if (exam.startDate && now < new Date(exam.startDate)) {
+      return res.status(403).json({
+        success: false,
+        message: `Examination has not started yet. It will open at ${new Date(exam.startDate).toLocaleString()}.`
+      });
+    }
+    if (exam.endDate && now > new Date(exam.endDate)) {
+      return res.status(403).json({
+        success: false,
+        message: `Examination window has closed. It ended at ${new Date(exam.endDate).toLocaleString()}.`
+      });
+    }
+
+    // Check student attempt limits
+    const existingResultsCount = await Result.countDocuments({
+      $or: [
+        { student: studentId, exam: exam._id },
+        { username: studentUsername, exam: exam._id }
+      ]
+    });
+
+    const retakeDoc = exam.retakesGranted && exam.retakesGranted.find(
+      r => r.student && r.student.toString() === studentId.toString()
+    );
+    const bonusAttempts = retakeDoc ? (retakeDoc.additionalAttempts || 0) : 0;
+    const maxAllowedAttempts = (exam.maxAttempts || 1) + bonusAttempts;
+
+    if (existingResultsCount >= maxAllowedAttempts) {
+      return res.status(403).json({
+        success: false,
+        message: `You have reached the maximum number of attempts (${maxAllowedAttempts}) allowed for this examination.`
+      });
+    }
+
     const REQUIRED_QUESTIONS = exam.totalQuestions || 40;
+    const maxWarnings = exam.maxWarnings || 3;
 
     // 1. RECONNECTION / PAGE REFRESH CHECK:
     // Check if student already has an active, non-expired session for this exam
@@ -154,6 +194,14 @@ exports.startExamSession = async (req, res) => {
     if (existingSession) {
       const remainingSeconds = Math.max(0, Math.round((new Date(existingSession.expiresAt) - Date.now()) / 1000));
 
+      // Sanitize questions to omit optionMapping and correct keys
+      const sanitizedQuestions = (existingSession.questionsData || []).map(q => ({
+        questionId: q.questionId,
+        index: q.index,
+        question: q.question,
+        options: q.options
+      }));
+
       return res.status(200).json({
         success: true,
         message: 'Resuming active examination session.',
@@ -161,11 +209,12 @@ exports.startExamSession = async (req, res) => {
         session: {
           sessionId: existingSession.sessionId,
           examTitle: exam.title,
-          totalQuestions: existingSession.questionsData.length,
-          questions: existingSession.questionsData,
+          totalQuestions: sanitizedQuestions.length,
+          questions: sanitizedQuestions,
           savedAnswers: existingSession.answers || {},
           markedForReview: existingSession.markedForReview || {},
           warnings: existingSession.warnings || 0,
+          maxWarnings: existingSession.maxWarnings || maxWarnings,
           remainingSeconds,
           expiresAt: existingSession.expiresAt
         }
@@ -182,8 +231,7 @@ exports.startExamSession = async (req, res) => {
       });
     }
 
-    // 3. BACKEND RANDOM SELECTION OF EXACTLY 40 UNIQUE QUESTIONS FROM THIS EXAMINATION:
-    // Uses MongoDB $sample aggregation matching only this exam's question bank (never mixes questions)
+    // 3. BACKEND RANDOM SELECTION OF UNIQUE QUESTIONS FROM THIS EXAMINATION:
     const randomQuestions = await Question.aggregate([
       { $match: { exam: exam._id } },
       { $sample: { size: REQUIRED_QUESTIONS } }
@@ -196,15 +244,30 @@ exports.startExamSession = async (req, res) => {
       });
     }
 
-    // 4. SANITIZE & SHUFFLE OPTIONS (CORRECT ANSWERS ARE NEVER EXPOSED TO STUDENTS)
-    const formattedQuestions = randomQuestions.map((q, idx) => {
+    // 4. SHUFFLE OPTIONS PER QUESTION & STORE MAPPING INTERNALLY
+    // Options are shuffled per student session. optionMapping translates shuffled choice back to original.
+    const questionsDataForDb = [];
+    const sanitizedQuestionsForClient = [];
+
+    randomQuestions.forEach((q, idx) => {
       const baseOptions = [q.optionA, q.optionB, q.optionC, q.optionD];
-      return {
+      const mapping = shuffle([0, 1, 2, 3]);
+      const shuffledOptions = mapping.map(origIdx => baseOptions[origIdx]);
+
+      questionsDataForDb.push({
         questionId: q._id,
         index: idx + 1,
         question: q.question,
-        options: baseOptions // Sent in standard A, B, C, D order without correct answer
-      };
+        options: shuffledOptions,
+        optionMapping: mapping
+      });
+
+      sanitizedQuestionsForClient.push({
+        questionId: q._id,
+        index: idx + 1,
+        question: q.question,
+        options: shuffledOptions
+      });
     });
 
     const sessionId = 'SES-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
@@ -219,14 +282,15 @@ exports.startExamSession = async (req, res) => {
       studentName: studentFullName,
       exam: exam._id,
       questionIds: randomQuestions.map(q => q._id),
-      questionsData: formattedQuestions,
+      questionsData: questionsDataForDb,
       answers: {},
       markedForReview: {},
       durationMinutes,
       startTime: new Date(),
       expiresAt,
       status: 'active',
-      warnings: 0
+      warnings: 0,
+      maxWarnings
     });
 
     res.status(201).json({
@@ -236,11 +300,12 @@ exports.startExamSession = async (req, res) => {
       session: {
         sessionId: newSession.sessionId,
         examTitle: exam.title,
-        totalQuestions: formattedQuestions.length,
-        questions: formattedQuestions,
+        totalQuestions: sanitizedQuestionsForClient.length,
+        questions: sanitizedQuestionsForClient,
         savedAnswers: {},
         markedForReview: {},
         warnings: 0,
+        maxWarnings,
         remainingSeconds: durationMinutes * 60,
         expiresAt: newSession.expiresAt
       }
@@ -355,15 +420,33 @@ exports.recordWarning = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
+    const maxAllowed = session.maxWarnings || 3;
     session.warnings = (session.warnings || 0) + 1;
+
+    let autoSubmitted = false;
+    let evalResult = null;
+
+    if (session.warnings >= maxAllowed && session.status === 'active') {
+      autoSubmitted = true;
+      try {
+        evalResult = await evaluateExamSession(session);
+        session.status = 'submitted';
+      } catch (evalErr) {
+        console.error('Auto-submit evaluation error:', evalErr);
+      }
+    }
+
     await session.save();
 
     res.status(200).json({
       success: true,
       warnings: session.warnings,
-      autoSubmit: session.warnings >= 3
+      maxWarnings: maxAllowed,
+      autoSubmit: autoSubmitted,
+      result: evalResult ? evalResult.result : undefined
     });
   } catch (error) {
+    console.error('Record warning error:', error);
     res.status(500).json({ success: false, message: 'Failed to record warning.' });
   }
 };
@@ -511,12 +594,31 @@ exports.deleteQuestion = async (req, res) => {
   }
 };
 
-// @desc    Admin resets question bank default questions for a specific examination
+// @desc    Admin resets question bank default questions for a specific examination (requires secondary password confirmation)
 // @route   POST /api/exams/reset-defaults or POST /api/admin/reset-defaults
 // @access  Protected Admin
 exports.resetDefaultQuestions = async (req, res) => {
   try {
     const { examId, exam } = req.body;
+
+    // Secondary password verification for destructive action
+    const adminPassword = req.body?.adminPassword || req.headers['x-admin-password'];
+    if (!adminPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Admin password confirmation required to reset question bank.',
+        requirePassword: true
+      });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+
+    const adminUser = await User.findById(req.user._id);
+    if (!adminUser || !(await adminUser.matchPassword(adminPassword))) {
+      return res.status(401).json({ success: false, message: 'Invalid admin confirmation password.' });
+    }
 
     // Resolve target examination
     let targetExamId = examId || exam;
@@ -564,6 +666,23 @@ exports.resetDefaultQuestions = async (req, res) => {
       exam: targetExamId,
       isDefault: false
     });
+
+    // Record in AuditLog
+    await AuditLog.create({
+      action: 'RESET_DEFAULT_QUESTIONS',
+      performedBy: req.user._id,
+      adminUsername: req.user.username,
+      targetType: 'Exam',
+      targetId: targetExamId.toString(),
+      details: {
+        examTitle: targetExam.title,
+        replacedDefaults: deletedResult.deletedCount,
+        insertedDefaults: formatted.length,
+        preservedCustom: customCount
+      },
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    }).catch(e => console.warn('AuditLog error:', e.message));
 
     res.status(200).json({
       success: true,
@@ -753,33 +872,215 @@ exports.importQuestionsCSV = async (req, res) => {
   }
 };
 
-// @desc    Admin updates exam settings (duration)
-// @route   PUT /api/exams/settings
+// @desc    Admin updates exam settings (duration, max attempts, passing %, dates, etc.)
+// @route   PUT /api/exams/settings or PUT /api/exams/:id/settings
 // @access  Protected Admin
 exports.updateExamSettings = async (req, res) => {
   try {
-    const { minutes } = req.body;
-    const duration = parseInt(minutes, 10);
+    const {
+      examId,
+      minutes,
+      durationMinutes,
+      totalQuestions,
+      passingPercentage,
+      maxWarnings,
+      maxAttempts,
+      showAnswersAfterSubmit,
+      randomizeQuestions,
+      startDate,
+      endDate,
+      title,
+      description,
+      isActive
+    } = req.body;
 
-    if (!duration || duration < 1 || duration > 180) {
-      return res.status(400).json({
-        success: false,
-        message: 'Exam duration must be between 1 and 180 minutes.'
-      });
+    const targetExamId = req.params.id || examId;
+    let exam = null;
+
+    if (targetExamId && mongoose.Types.ObjectId.isValid(targetExamId)) {
+      exam = await Exam.findById(targetExamId);
+    } else {
+      exam = await Exam.findOne({ isActive: true });
+      if (!exam) {
+        exam = await Exam.findOne();
+      }
     }
 
-    const updated = await Exam.findOneAndUpdate(
-      {},
-      { durationMinutes: duration },
-      { new: true, upsert: true }
-    );
+    if (!exam) {
+      return res.status(404).json({ success: false, message: 'Examination not found to update settings.' });
+    }
+
+    const updates = {};
+
+    const durationVal = durationMinutes !== undefined ? durationMinutes : minutes;
+    if (durationVal !== undefined && durationVal !== null && durationVal !== '') {
+      const dur = parseInt(durationVal, 10);
+      if (isNaN(dur) || dur < 1 || dur > 300) {
+        return res.status(400).json({ success: false, message: 'Exam duration must be between 1 and 300 minutes.' });
+      }
+      updates.durationMinutes = dur;
+    }
+
+    if (totalQuestions !== undefined && totalQuestions !== null && totalQuestions !== '') {
+      const tq = parseInt(totalQuestions, 10);
+      if (isNaN(tq) || tq < 1 || tq > 200) {
+        return res.status(400).json({ success: false, message: 'Total questions must be between 1 and 200.' });
+      }
+      updates.totalQuestions = tq;
+    }
+
+    if (passingPercentage !== undefined && passingPercentage !== null && passingPercentage !== '') {
+      const pp = parseInt(passingPercentage, 10);
+      if (isNaN(pp) || pp < 1 || pp > 100) {
+        return res.status(400).json({ success: false, message: 'Passing percentage must be between 1 and 100.' });
+      }
+      updates.passingPercentage = pp;
+    }
+
+    if (maxWarnings !== undefined && maxWarnings !== null && maxWarnings !== '') {
+      const mw = parseInt(maxWarnings, 10);
+      if (isNaN(mw) || mw < 1 || mw > 10) {
+        return res.status(400).json({ success: false, message: 'Max warnings must be between 1 and 10.' });
+      }
+      updates.maxWarnings = mw;
+    }
+
+    if (maxAttempts !== undefined && maxAttempts !== null && maxAttempts !== '') {
+      const ma = parseInt(maxAttempts, 10);
+      if (isNaN(ma) || ma < 1 || ma > 50) {
+        return res.status(400).json({ success: false, message: 'Max attempts must be between 1 and 50.' });
+      }
+      updates.maxAttempts = ma;
+    }
+
+    if (showAnswersAfterSubmit !== undefined) {
+      updates.showAnswersAfterSubmit = Boolean(showAnswersAfterSubmit);
+    }
+
+    if (randomizeQuestions !== undefined) {
+      updates.randomizeQuestions = Boolean(randomizeQuestions);
+    }
+
+    if (startDate !== undefined) {
+      updates.startDate = startDate ? new Date(startDate) : null;
+    }
+
+    if (endDate !== undefined) {
+      updates.endDate = endDate ? new Date(endDate) : null;
+    }
+
+    if (title && typeof title === 'string' && title.trim()) {
+      updates.title = title.trim();
+    }
+
+    if (description !== undefined && typeof description === 'string') {
+      updates.description = description.trim();
+    }
+
+    if (isActive !== undefined) {
+      updates.isActive = Boolean(isActive);
+    }
+
+    const updated = await Exam.findByIdAndUpdate(exam._id, { $set: updates }, { new: true });
+
+    // Record in AuditLog
+    await AuditLog.create({
+      action: 'UPDATE_EXAM_SETTINGS',
+      performedBy: req.user ? req.user._id : null,
+      adminUsername: req.user ? req.user.username : 'admin',
+      targetType: 'Exam',
+      targetId: exam._id.toString(),
+      details: updates,
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    }).catch(e => console.warn('AuditLog error:', e.message));
 
     res.status(200).json({
       success: true,
-      message: `Exam duration updated to ${duration} minutes.`,
+      message: `Exam settings updated successfully.`,
       exam: updated
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to update duration.' });
+    console.error('Update exam settings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update exam settings.' });
+  }
+};
+
+// @desc    Admin grants extra attempt / retake to a student
+// @route   POST /api/exams/:id/grant-retake
+// @access  Protected Admin
+exports.grantRetake = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentId, username, additionalAttempts, reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid exam ID.' });
+    }
+
+    const exam = await Exam.findById(id);
+    if (!exam) {
+      return res.status(404).json({ success: false, message: 'Examination not found.' });
+    }
+
+    let studentDoc = null;
+    if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
+      studentDoc = await User.findById(studentId);
+    } else if (username) {
+      studentDoc = await User.findOne({ username: username.trim().toLowerCase(), role: 'student' });
+    }
+
+    if (!studentDoc) {
+      return res.status(404).json({ success: false, message: 'Student account not found.' });
+    }
+
+    const attemptsToAdd = parseInt(additionalAttempts, 10) || 1;
+
+    // Check if retake entry already exists in exam.retakesGranted
+    const existingIndex = (exam.retakesGranted || []).findIndex(
+      r => r.student && r.student.toString() === studentDoc._id.toString()
+    );
+
+    if (existingIndex !== -1) {
+      exam.retakesGranted[existingIndex].additionalAttempts += attemptsToAdd;
+      exam.retakesGranted[existingIndex].reason = reason || exam.retakesGranted[existingIndex].reason;
+      exam.retakesGranted[existingIndex].grantedAt = new Date();
+    } else {
+      if (!exam.retakesGranted) exam.retakesGranted = [];
+      exam.retakesGranted.push({
+        student: studentDoc._id,
+        additionalAttempts: attemptsToAdd,
+        grantedAt: new Date(),
+        reason: reason || 'Retake granted by administrator'
+      });
+    }
+
+    await exam.save();
+
+    // Audit log entry
+    await AuditLog.create({
+      action: 'GRANT_RETAKE',
+      performedBy: req.user ? req.user._id : null,
+      adminUsername: req.user ? req.user.username : 'admin',
+      targetType: 'Exam',
+      targetId: exam._id.toString(),
+      details: {
+        studentId: studentDoc._id,
+        studentUsername: studentDoc.username,
+        additionalAttempts: attemptsToAdd,
+        reason: reason || 'Retake granted'
+      },
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    }).catch(e => console.warn('AuditLog error:', e.message));
+
+    res.status(200).json({
+      success: true,
+      message: `Granted ${attemptsToAdd} additional attempt(s) to ${studentDoc.fullName} (${studentDoc.username}) for examination '${exam.title}'.`,
+      retakesGranted: exam.retakesGranted
+    });
+  } catch (error) {
+    console.error('Grant retake error:', error);
+    res.status(500).json({ success: false, message: 'Failed to grant retake.' });
   }
 };

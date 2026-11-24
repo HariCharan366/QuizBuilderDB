@@ -7,7 +7,7 @@
 
 const SS_EXAM_USER_E = "examUser";
 
-const MAX_WARNINGS = 3;
+let MAX_WARNINGS = 3;
 const EXAM_QUESTION_COUNT = 40;
 
 let EXAM_SECONDS = 15 * 60; // Configured dynamically by MongoDB ExamSession
@@ -152,10 +152,13 @@ async function initExamSession() {
       if (data.session.remainingSeconds !== undefined) {
         timeRemaining = Math.max(0, data.session.remainingSeconds);
       }
+      if (data.session.maxWarnings) {
+        MAX_WARNINGS = data.session.maxWarnings;
+      }
       if (data.session.durationMinutes) {
         EXAM_SECONDS = data.session.durationMinutes * 60;
       }
-      if (data.session.warnings) {
+      if (data.session.warnings !== undefined) {
         warningCount = data.session.warnings;
         els.warnCounter.textContent = `Warnings: ${warningCount}/${MAX_WARNINGS}`;
       }

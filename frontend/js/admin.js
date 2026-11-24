@@ -31,6 +31,27 @@ let currentActivityList = [];
 let currentStudentsList = [];
 
 document.addEventListener("DOMContentLoaded", () => {
+  /* ---------- Global 401 Auth Interceptor ---------- */
+  const originalFetch = window.fetch;
+  window.fetch = async (...args) => {
+    const response = await originalFetch(...args);
+    if (response.status === 401) {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+      if (!url.includes('/login')) {
+        const cloned = response.clone();
+        const json = await cloned.json().catch(() => ({}));
+        if (!json.requirePassword && sessionStorage.getItem(SS_ADMIN_TOKEN)) {
+          console.warn('Admin JWT expired or invalid (401)');
+          sessionStorage.removeItem(SS_ADMIN_TOKEN);
+          sessionStorage.removeItem(SS_ADMIN);
+          alert('Administrative session has expired. Please sign in again.');
+          showLogin();
+        }
+      }
+    }
+    return response;
+  };
+
   /* ---------- Backend Connection Alert Helpers ---------- */
   function showConnectionError(msg) {
     const errBanner = document.getElementById("admin-connection-error");
@@ -80,6 +101,8 @@ document.addEventListener("DOMContentLoaded", () => {
     try { loadExamSettings(); } catch (e) { console.error(e); }
     try { renderQuestions(); } catch (e) { console.error(e); }
     try { renderLeaderboard(); } catch (e) { console.error(e); }
+    try { loadAnalytics(); } catch (e) { console.error(e); }
+    try { loadAuditLogs(); } catch (e) { console.error(e); }
 
     // Start 10-second automatic polling for centralized multi-device activity
     startAutoRefresh();
@@ -942,15 +965,30 @@ document.addEventListener("DOMContentLoaded", () => {
   if (confirmDeleteStudentBtn) {
     confirmDeleteStudentBtn.addEventListener("click", async () => {
       if (pendingDeleteStudentId) {
+        const adminPassword = prompt("SECURITY CONFIRMATION\n\nPlease enter your Admin Password to confirm student deletion:");
+        if (!adminPassword) {
+          pendingDeleteStudentId = null;
+          document.getElementById("delete-student-modal").classList.remove("show");
+          return;
+        }
+
         const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
         try {
           const res = await fetch(getApiUrl(`/api/admin/students/${pendingDeleteStudentId}`), {
             method: "DELETE",
-            headers: token ? { "Authorization": `Bearer ${token}` } : {}
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ adminPassword })
           });
+          const data = await res.json().catch(() => ({}));
           if (res.ok) {
             await loadStudentsFromBackend();
             await loadAdminStats();
+            if (typeof loadAuditLogs === 'function') loadAuditLogs();
+          } else {
+            alert(data.message || "Failed to delete student account.");
           }
         } catch (e) {
           console.warn("Delete student error:", e);
@@ -1267,18 +1305,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmResetBtn = document.getElementById("confirm-reset-btn");
   if (confirmResetBtn) {
     confirmResetBtn.addEventListener("click", async () => {
+      const adminPassword = prompt("SECURITY CONFIRMATION\n\nPlease enter your Admin Password to confirm resetting default questions:");
+      if (!adminPassword) {
+        document.getElementById("reset-modal").classList.remove("show");
+        return;
+      }
+
       const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
       try {
         const res = await fetch(getApiUrl("/api/admin/reset-defaults"), {
           method: "POST",
-          headers: token ? { "Authorization": `Bearer ${token}` } : {}
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ adminPassword })
         });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
+          alert(data.message || "Default questions reset successfully.");
           await loadQuestionsFromBackend();
           await loadAdminStats();
+          if (typeof loadAuditLogs === 'function') loadAuditLogs();
         } else {
-          const errData = await res.json().catch(() => ({}));
-          alert(errData.message || "Failed to reset questions.");
+          alert(data.message || "Failed to reset questions.");
         }
       } catch (e) {
         console.warn("Backend reset questions error:", e);
@@ -1351,7 +1401,28 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================================================
      EXPORTS (EXCEL & CSV) & CLEAR ALL RESULTS
      ========================================================= */
-  function exportResultsToExcel() {
+  async function exportResultsToExcel() {
+    try {
+      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const res = await fetch(getApiUrl("/api/admin/export/excel"), {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `QuizBuilder_Results_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (err) {
+      console.warn("Backend excel export error, falling back to local view:", err);
+    }
+
     const records = currentActivityList;
     if (!records.length) {
       alert("No examination data available to export yet.");
@@ -1462,8 +1533,17 @@ document.addEventListener("DOMContentLoaded", () => {
       `${r.warnings || 0}/3`
     ]);
 
+    const sanitizeCell = (cell) => {
+      let str = String(cell || "");
+      // Neutralize formula injection
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const csv = "\uFEFF" + [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .map((row) => row.map(sanitizeCell).join(","))
       .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1501,16 +1581,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmClearBtn = document.getElementById("confirm-clear-results-btn");
   if (confirmClearBtn) {
     confirmClearBtn.addEventListener("click", async () => {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
-      currentActivityList = [];
+      const adminPassword = prompt("SECURITY CONFIRMATION\n\nPlease enter your Admin Password to confirm clearing all exam results and sessions:");
+      if (!adminPassword) {
+        document.getElementById("clear-results-modal").classList.remove("show");
+        return;
+      }
 
+      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
       try {
-        await fetch(getApiUrl("/api/admin/results"), {
+        const res = await fetch(getApiUrl("/api/admin/results"), {
           method: "DELETE",
-          headers: token ? { "Authorization": `Bearer ${token}` } : {}
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ adminPassword })
         });
-        await loadAdminStats();
-        await loadExamActivity();
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          currentActivityList = [];
+          alert(data.message || "All exam results cleared successfully.");
+          await loadAdminStats();
+          await loadExamActivity();
+          if (typeof loadAuditLogs === 'function') loadAuditLogs();
+        } else {
+          alert(data.message || "Failed to clear results.");
+        }
       } catch (e) {
         console.warn("Failed to clear backend results:", e);
       }
@@ -1523,9 +1619,36 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================================================
      LEADERBOARD
      ========================================================= */
-  function renderLeaderboard() {
+  async function renderLeaderboard() {
     const list = document.getElementById("leaderboard-list");
     if (!list) return;
+
+    try {
+      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const res = await fetch(getApiUrl("/api/admin/leaderboard"), {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.leaderboard && data.leaderboard.length) {
+          list.innerHTML = data.leaderboard.slice(0, 10).map((r) => `
+            <div class="leaderboard-item" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #dfe3ee; border-radius:12px; padding:12px 14px; margin-bottom:8px;">
+              <div>
+                <strong>#${r.rank} ${escapeHtml(r.studentName || "Unknown")}</strong><br>
+                <small style="color:var(--gray-600);">@${escapeHtml(r.username || "—")}</small>
+              </div>
+              <div style="text-align:right;">
+                <div><strong>${escapeHtml(r.score)} / ${escapeHtml(r.total)} (${r.percentage}%)</strong></div>
+                <small style="color:#059669; font-weight:600;">Time: ${escapeHtml(r.timeTaken || "—")}</small>
+              </div>
+            </div>
+          `).join("");
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Leaderboard API error, using activity list:", e);
+    }
 
     const results = currentActivityList
       .filter(r => r.submissionStatus !== "Active")
@@ -1551,6 +1674,117 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
     }).join("");
+  }
+
+  /* =========================================================
+     EXAMINATION ANALYTICS & AUDIT TRAIL
+     ========================================================= */
+  async function loadAnalytics() {
+    try {
+      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const res = await fetch(getApiUrl("/api/admin/analytics"), {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const a = data.analytics;
+      if (!a) return;
+
+      const setEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+
+      setEl("analytics-pass-rate-badge", `${a.passRate}% Pass Rate (${a.passedResults}/${a.totalResults})`);
+      if (a.distribution) {
+        setEl("analytics-bucket-fail", a.distribution.fail || 0);
+        setEl("analytics-bucket-pass", a.distribution.pass || 0);
+        setEl("analytics-bucket-good", a.distribution.good || 0);
+        setEl("analytics-bucket-distinction", a.distribution.distinction || 0);
+      }
+
+      const hList = document.getElementById("analytics-hardest-list");
+      if (hList) {
+        if (!a.hardestQuestions || !a.hardestQuestions.length) {
+          hList.innerHTML = '<div style="color:#64748b; font-style:italic;">No recorded question attempts yet.</div>';
+        } else {
+          hList.innerHTML = a.hardestQuestions.map((q, i) => `
+            <div style="background:#fff; border:1px solid #fee2e2; border-radius:6px; padding:8px 10px; margin-bottom:6px;">
+              <strong>${i + 1}. ${escapeHtml(q.question.slice(0, 85))}${q.question.length > 85 ? '...' : ''}</strong>
+              <div style="color:#991b1b; font-weight:600; margin-top:2px;">Incorrect: ${q.wrongRate}% (${q.wrong}/${q.totalAttempts})</div>
+            </div>
+          `).join("");
+        }
+      }
+
+      const eList = document.getElementById("analytics-easiest-list");
+      if (eList) {
+        if (!a.easiestQuestions || !a.easiestQuestions.length) {
+          eList.innerHTML = '<div style="color:#64748b; font-style:italic;">No recorded question attempts yet.</div>';
+        } else {
+          eList.innerHTML = a.easiestQuestions.map((q, i) => `
+            <div style="background:#fff; border:1px solid #dcfce7; border-radius:6px; padding:8px 10px; margin-bottom:6px;">
+              <strong>${i + 1}. ${escapeHtml(q.question.slice(0, 85))}${q.question.length > 85 ? '...' : ''}</strong>
+              <div style="color:#166534; font-weight:600; margin-top:2px;">Correct: ${q.correctRate}% (${q.correct}/${q.totalAttempts})</div>
+            </div>
+          `).join("");
+        }
+      }
+    } catch (e) {
+      console.warn("Load analytics error:", e);
+    }
+  }
+
+  async function loadAuditLogs() {
+    try {
+      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const res = await fetch(getApiUrl("/api/admin/audit-logs?limit=15"), {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = document.getElementById("audit-logs-list");
+      if (!list) return;
+
+      if (!data.logs || !data.logs.length) {
+        list.innerHTML = '<div class="empty-state">No audit logs recorded yet.</div>';
+        return;
+      }
+
+      list.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead>
+              <tr style="background:#f1f5f9; text-align:left; border-bottom:2px solid #cbd5e1;">
+                <th style="padding:8px 10px;">Timestamp</th>
+                <th style="padding:8px 10px;">Admin</th>
+                <th style="padding:8px 10px;">Action</th>
+                <th style="padding:8px 10px;">Target</th>
+                <th style="padding:8px 10px;">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.logs.map(log => `
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:6px 10px; white-space:nowrap; color:#64748b;">${formatDateTimeA(log.createdAt)}</td>
+                  <td style="padding:6px 10px; font-weight:600;">${escapeHtml(log.adminUsername || 'admin')}</td>
+                  <td style="padding:6px 10px;"><span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">${escapeHtml(log.action)}</span></td>
+                  <td style="padding:6px 10px; color:#475569;">${escapeHtml(log.targetType || 'System')}</td>
+                  <td style="padding:6px 10px; color:#64748b; font-family:monospace; font-size:0.78rem;">${escapeHtml(JSON.stringify(log.details || {}).slice(0, 90))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (e) {
+      console.warn("Load audit logs error:", e);
+    }
+  }
+
+  const refreshAuditBtn = document.getElementById("refresh-audit-logs-btn");
+  if (refreshAuditBtn) {
+    refreshAuditBtn.addEventListener("click", loadAuditLogs);
   }
 });
 

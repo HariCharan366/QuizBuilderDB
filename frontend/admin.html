@@ -259,6 +259,51 @@
         <div id="leaderboard-list"></div>
       </div>
 
+      <!-- Advanced Analytics Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>EXAMINATION ANALYTICS</h2>
+          <span class="count-badge" id="analytics-pass-rate-badge">0% Pass Rate</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+            <div style="font-size:0.8rem; color:#64748b; font-weight:600;">0 - 49% (Fail)</div>
+            <div id="analytics-bucket-fail" style="font-size:1.4rem; font-weight:700; color:#dc2626;">0</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+            <div style="font-size:0.8rem; color:#64748b; font-weight:600;">50 - 69% (Pass)</div>
+            <div id="analytics-bucket-pass" style="font-size:1.4rem; font-weight:700; color:#d97706;">0</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+            <div style="font-size:0.8rem; color:#64748b; font-weight:600;">70 - 89% (Good)</div>
+            <div id="analytics-bucket-good" style="font-size:1.4rem; font-weight:700; color:#2563eb;">0</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+            <div style="font-size:0.8rem; color:#64748b; font-weight:600;">90 - 100% (Distinction)</div>
+            <div id="analytics-bucket-distinction" style="font-size:1.4rem; font-weight:700; color:#16a34a;">0</div>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+          <div>
+            <h3 style="font-size:0.95rem; margin-bottom:8px; color:#991b1b;">🔥 Most Challenging Questions</h3>
+            <div id="analytics-hardest-list" style="font-size:0.85rem;"></div>
+          </div>
+          <div>
+            <h3 style="font-size:0.95rem; margin-bottom:8px; color:#166534;">✨ Highest Accuracy Questions</h3>
+            <div id="analytics-easiest-list" style="font-size:0.85rem;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Audit Trails Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>SECURITY AUDIT TRAIL</h2>
+          <button id="refresh-audit-logs-btn" class="btn btn-outline btn-sm">Refresh Logs</button>
+        </div>
+        <div id="audit-logs-list"></div>
+      </div>
+
     </div>
   </div>
 
@@ -419,7 +464,6 @@
   </div>
 
   <script src="js/config.js"></script>
-  <script src="js/questions.js"></script>
   <script src="js/admin.js"></script>
 </body>
 </html>

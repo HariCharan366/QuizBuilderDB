@@ -19,6 +19,8 @@ router.put('/questions/:id', protect, adminOnly, examController.updateQuestion);
 router.delete('/questions/:id', protect, adminOnly, examController.deleteQuestion);
 router.post('/reset-defaults', protect, adminOnly, examController.resetDefaultQuestions);
 router.post('/import-csv', protect, adminOnly, examController.importQuestionsCSV);
+router.post('/:id/grant-retake', protect, adminOnly, examController.grantRetake);
+router.put('/:id/settings', protect, adminOnly, examController.updateExamSettings);
 router.put('/settings', protect, adminOnly, examController.updateExamSettings);
 
 module.exports = router;

@@ -29,16 +29,28 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, 'Please provide a password'],
-      minlength: [4, 'Password must be at least 4 characters']
+      minlength: [8, 'Password must be at least 8 characters long']
     },
     role: {
       type: String,
-      enum: ['student', 'admin'],
+      enum: ['student', 'admin', 'superadmin', 'invigilator', 'viewer'],
       default: 'student'
     },
     isBlocked: {
       type: Boolean,
       default: false
+    },
+    tokenVersion: {
+      type: Number,
+      default: 0
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockUntil: {
+      type: Date,
+      default: null
     },
     lastLoginAt: {
       type: Date,
@@ -50,17 +62,24 @@ const userSchema = new mongoose.Schema(
     },
     resetPasswordToken: {
       type: String,
-      default: null
+      default: null,
+      select: false
     },
     resetPasswordExpires: {
       type: Date,
-      default: null
+      default: null,
+      select: false
     }
   },
   {
     timestamps: true
   }
 );
+
+// Helper to check if account is temporarily locked
+userSchema.methods.isAccountLocked = function () {
+  return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());
+};
 
 // Hash password before saving
 userSchema.pre('save', async function () {
@@ -76,12 +95,14 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Exclude password in JSON conversion
+// Exclude sensitive fields in JSON conversion
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpires;
+  delete obj.failedLoginAttempts;
+  delete obj.lockUntil;
   return obj;
 };
 

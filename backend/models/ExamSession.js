@@ -38,7 +38,10 @@ const examSessionSchema = new mongoose.Schema(
       {
         questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
         question: String,
-        options: [String]
+        options: [String],
+        // Secret internal mapping: optionMapping[shuffledIndex] = originalIndex (0..3)
+        // Stored on server only; never sent to frontend client
+        optionMapping: [Number]
       }
     ],
     // Map of questionId -> selectedOptionIndex (0-3)
@@ -56,6 +59,10 @@ const examSessionSchema = new mongoose.Schema(
     warnings: {
       type: Number,
       default: 0
+    },
+    maxWarnings: {
+      type: Number,
+      default: 3
     },
     durationMinutes: {
       type: Number,

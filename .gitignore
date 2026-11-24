@@ -5,7 +5,8 @@ node_modules/
 .env.*
 !.env.example
 !**/.env.example
-backend/data/
+backend/data/*.json
+!backend/data/seedQuestions.js
 **/results.json
 results.json
 npm-debug.log*

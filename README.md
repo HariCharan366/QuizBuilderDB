@@ -154,57 +154,29 @@ QuizBuilder is designed around a decoupled, single-source-of-truth architecture.
   - Enforces fullscreen mode; detects focus loss, tab switching, and window resizing; logs warnings via `/api/exams/record-warning`.
   - Dispatches certified exam submission to `/api/results` and redirects to `result.html?id=...`.
 
-#### `frontend/js/questions.js`
+#### `backend/data/seedQuestions.js`
 * **Main Purpose**: Multi-domain programming default question bank containing 75 curated technical questions (Python, JavaScript, Data Structures, OOP, SQL, Web Security, Algorithms).
-* **Usage**: Used by `backend/server.js` and `backend/controllers/examController.js` during initial database setup or non-destructive defaults restoration.
+* **Security Architecture**: Strictly located on the backend; never exposed or linked in client HTML files (`frontend/js/questions.js` has been removed). Used only for initial database initialization or non-destructive defaults restoration.
 
-#### `frontend/vercel.json`
-* **Main Purpose**: Directory-level Vercel configuration ensuring clean URL rewrites when the `frontend/` folder is deployed as the project root.
-
----
-
-### 3. Backend Architecture (`backend/`)
-
-#### `backend/server.js`
-* **Main Purpose**: Main Express web application and HTTP server entry point.
-* **Key Features**:
-  - Connects to MongoDB Atlas via `connectDB()`.
-  - Runs system initializers (`initSystem`): syncs admin credentials from environment variables and seeds initial questions/exams if empty.
-  - Applies strict production CORS policies rejecting unauthorized origins and disallowing wildcard `*`.
-  - Implements security middleware blocking public access to `.env`, `package.json`, and backend folders.
-  - Configures rate limiters and mounts API routes (`/api/auth`, `/api/admin`, `/api/exams`, `/api/results`).
-  - Serves static frontend files and exposes `/api/health`.
-
-#### `backend/config/db.js`
-* **Main Purpose**: Database connection manager using Mongoose.
-* **Key Logic**: Detects `NODE_ENV === 'test'` or presence of `MONGO_URI_TEST` to connect safely to the test database (`quizbuilder_test`), otherwise connects to production (`quizbuilder`). Logs connected host and active database name.
-
-#### `backend/middleware/authMiddleware.js`
-* **Main Purpose**: Authentication and authorization middleware.
-* **Key Components**:
-  - `protect`: Extracts and verifies JWT Bearer tokens from request headers; attaches authenticated `req.user`.
-  - `adminOnly`: Restricts route access strictly to users with `role: 'admin'`. Returns `403 Forbidden` for students.
-  - `apiLimiter`: Rate-limiting middleware preventing denial-of-service and brute-force attacks on API endpoints.
+#### `backend/models/AuditLog.js`
+* **Main Purpose**: Mongoose schema recording immutable administrative audit trails.
+* **Key Fields**: `action`, `performedBy` (reference to User), `adminUsername`, `targetType`, `targetId`, `details`, `ip`, `userAgent`, `createdAt`.
 
 #### `backend/models/User.js`
 * **Main Purpose**: Mongoose schema for Student and Administrator user accounts.
-* **Key Fields**: `fullName`, `username` (unique, lowercase), `email` (unique, lowercase), `password` (hashed via bcryptjs before saving), `role` (`'student'` or `'admin'`), `isBlocked`, `loginAttempts`, `createdAt`.
+* **Key Fields**: `fullName`, `username` (unique, lowercase), `email` (unique, lowercase), `password` (hashed via bcryptjs before saving), `role` (`'student'`, `'admin'`, `'superadmin'`, `'invigilator'`, `'viewer'`), `isBlocked`, `tokenVersion` (for instant server-side token revocation), `failedLoginAttempts`, `lockUntil` (15-minute brute-force lockout), `createdAt`.
 
 #### `backend/models/Exam.js`
 * **Main Purpose**: Mongoose schema for examination definitions and parameters.
-* **Key Fields**: `title`, `code`, `description`, `durationMinutes` (default: 15), `totalQuestions` (default: 40), `maxWarnings` (default: 3), `passingPercentage` (default: 50), `isActive`.
-
-#### `backend/models/Question.js`
-* **Main Purpose**: Mongoose schema for the centralized question bank.
-* **Key Fields**: `exam` (reference to Exam), `question`, `optionA`, `optionB`, `optionC`, `optionD`, `correct` (hidden by default via `select: false`), `domain`, `isDefault`. Includes compound indexes for efficient lookups.
+* **Key Fields**: `title`, `code`, `description`, `durationMinutes` (default: 15), `totalQuestions` (default: 40), `maxWarnings` (default: 3), `maxAttempts` (default: 1), `retakesGranted` (array of additional attempts granted by admin), `passingPercentage` (default: 50), `showAnswersAfterSubmit`, `startDate`, `endDate`, `isActive`.
 
 #### `backend/models/ExamSession.js`
 * **Main Purpose**: Mongoose schema tracking active candidate examination sessions.
-* **Key Fields**: `sessionId` (unique UUID), `student` (reference to User), `exam` (reference to Exam), `assignedQuestions` (array of 40 randomized Question ObjectIDs), `savedAnswers` (Map of questionId to selected option index), `markedForReview`, `warnings`, `startTime`, `expiresAt`, `status` (`'active'`, `'submitted'`, `'terminated'`).
+* **Key Fields**: `sessionId` (unique UUID), `student` (reference to User), `exam` (reference to Exam), `questionIds` (array of 40 randomized Question ObjectIDs), `questionsData` (stores randomized questions and internal `optionMapping` array translating client shuffled choices to original options), `answers` (Map of questionId to chosen shuffled option index), `markedForReview`, `warnings`, `maxWarnings`, `startTime`, `expiresAt`, `status` (`'active'`, `'submitted'`, `'terminated'`).
 
 #### `backend/models/Result.js`
 * **Main Purpose**: Mongoose schema for certified examination results.
-* **Key Fields**: `session` (unique reference ensuring idempotent submission), `student` (reference to User), `exam` (reference to Exam), `username`, `studentName`, `email`, `examName`, `score` (percentage), `rawScore`, `correct`, `wrong`, `unanswered`, `totalQuestions`, `warnings`, `timeTakenSeconds`, `submissionStatus` (`'Passed'` or `'Failed'`), `answers` (audit log of questions, chosen options, and correct answers), `submittedAt`.
+* **Key Fields**: `session` (unique reference ensuring idempotent submission), `student` (reference to User), `exam` (reference to Exam), `username`, `studentName`, `email`, `examTitle`, `score` (percentage), `rawScore`, `correct`, `wrong`, `unanswered`, `total`, `warnings`, `timeTaken`, `timeTakenSeconds`, `status` (`'Passed'` or `'Failed'`), `answers` (audit log of questions, candidate selections, and correct answers), `submittedAt`.
 
 #### `backend/routes/authRoutes.js`
 * **Main Purpose**: Express route declarations for student authentication and password recovery.

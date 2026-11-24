@@ -2,38 +2,70 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/authMiddleware');
 
-// Models & Seed data
+// Set mongoose sanitizeFilter to protect against NoSQL operator injection
+mongoose.set('sanitizeFilter', true);
+
+// Models & Seed data (isolated in backend/data)
 const User = require('./models/User');
 const Question = require('./models/Question');
 const Exam = require('./models/Exam');
 const Result = require('./models/Result');
-const { DEFAULT_QUESTIONS } = require('../frontend/js/questions');
+const { DEFAULT_QUESTIONS } = require('./data/seedQuestions');
 
 const app = express();
+
+// Trust proxy for secure cookies and accurate rate limiting behind Render/Vercel/Cloudflare
+app.set('trust proxy', 1);
+
+// HTTP Security Headers
+app.use(helmet({
+  contentSecurityPolicy: false // Allows existing vanilla inline scripts/styles across frontend pages
+}));
+
+// Validate security configuration on startup
+const validateSecurityConfig = () => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.trim() === '' || jwtSecret === 'your_secure_random_jwt_secret_here') {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Security Abort] FATAL: JWT_SECRET must be configured with a secure secret in production.');
+      process.exit(1);
+    } else {
+      console.warn('[Security Warning] JWT_SECRET is using default/placeholder value in non-production.');
+    }
+  }
+
+  const adminPass = process.env.ADMIN_PASSWORD;
+  if (adminPass && adminPass.length < 12) {
+    console.error(`[Security Abort] FATAL: ADMIN_PASSWORD must be at least 12 characters long (current length: ${adminPass.length}).`);
+    process.exit(1);
+  }
+};
+
+validateSecurityConfig();
 
 // Initialize MongoDB & Seed
 const initSystem = async () => {
   try {
-    // 1. Ensure Admin Account exists from environment variables (and sync on credential rotation)
+    // 1. Ensure Admin Account exists from environment variables (Preserve existing account, never overwrite passwords)
     const adminId = process.env.ADMIN_ID;
     const adminPassword = process.env.ADMIN_PASSWORD;
     if (adminId && adminPassword) {
-      let admin = await User.findOne({ username: adminId, role: 'admin' });
+      let admin = await User.findOne({ username: adminId, role: { $in: ['admin', 'superadmin'] } });
       if (!admin) {
         await User.create({
           fullName: 'System Administrator',
           username: adminId,
           password: adminPassword,
-          role: 'admin'
+          role: 'superadmin'
         });
-        console.log(`[Seed] Admin account initialized (ID: ${adminId})`);
+        console.log(`[Seed] Initial superadmin account created (ID: ${adminId})`);
       } else {
-        admin.password = adminPassword;
-        await admin.save();
-        console.log(`[Seed] Admin account synchronized with rotated environment credentials.`);
+        console.log(`[Seed] Existing administrative account verified (ID: ${adminId}). Credentials preserved safely.`);
       }
     }
 
@@ -226,7 +258,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
 
-module.exports = { app, server: serverInstance };
+module.exports = { app, startServer };
 

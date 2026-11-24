@@ -42,7 +42,48 @@ const examSchema = new mongoose.Schema(
     randomizeQuestions: {
       type: Boolean,
       default: true
-    }
+    },
+    maxAttempts: {
+      type: Number,
+      default: 1,
+      min: 1
+    },
+    showAnswersAfterSubmit: {
+      type: Boolean,
+      default: false
+    },
+    startDate: {
+      type: Date,
+      default: null
+    },
+    endDate: {
+      type: Date,
+      default: null
+    },
+    retakesGranted: [
+      {
+        student: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        attemptsAllowed: {
+          type: Number,
+          default: 1
+        },
+        attemptsUsed: {
+          type: Number,
+          default: 0
+        },
+        grantedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        grantedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ]
   },
   {
     timestamps: true
