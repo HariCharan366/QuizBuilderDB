@@ -387,6 +387,27 @@ exports.getResultById = async (req, res) => {
       }
     }
 
+    // Fallback: If answers is missing or empty (e.g. from an older submission),
+    // hydrate questions from database so review can still be displayed
+    if (!Array.isArray(clientResult.answers) || clientResult.answers.length === 0) {
+      try {
+        const questions = await Question.find({}).select('+correct').sort({ createdAt: 1 }).limit(result.total || 40);
+        if (questions && questions.length > 0) {
+          clientResult.answers = questions.map((q, idx) => ({
+            questionId: q._id ? q._id.toString() : null,
+            index: idx + 1,
+            question: q.question,
+            options: [q.optionA, q.optionB, q.optionC, q.optionD],
+            selectedIndex: null,
+            correctIndex: (q.correct !== undefined && q.correct !== null) ? Number(q.correct) : 0,
+            isCorrect: false
+          }));
+        }
+      } catch (hydrateErr) {
+        // Fallback silently if questions cannot be loaded
+      }
+    }
+
     res.status(200).json({ success: true, result: clientResult });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error retrieving result.' });

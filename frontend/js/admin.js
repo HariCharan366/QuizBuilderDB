@@ -9,6 +9,10 @@ const SS_ADMIN = "adminSession";
 const SS_ADMIN_TOKEN = "adminAuthToken";
 const getApiUrl = (ep) => (typeof window.apiUrl === "function" ? window.apiUrl(ep) : ep);
 
+function getAdminToken() {
+  return sessionStorage.getItem(SS_ADMIN_TOKEN) || localStorage.getItem(SS_ADMIN_TOKEN) || "";
+}
+
 function formatDuration(totalSeconds) {
   const s = totalSeconds || 0;
   const m = Math.floor(s / 60);
@@ -40,10 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!url.includes('/login')) {
         const cloned = response.clone();
         const json = await cloned.json().catch(() => ({}));
-        if (!json.requirePassword && sessionStorage.getItem(SS_ADMIN_TOKEN)) {
+        if (!json.requirePassword && getAdminToken()) {
           console.warn('Admin JWT expired or invalid (401)');
           sessionStorage.removeItem(SS_ADMIN_TOKEN);
+          localStorage.removeItem(SS_ADMIN_TOKEN);
           sessionStorage.removeItem(SS_ADMIN);
+          localStorage.removeItem(SS_ADMIN);
           alert('Administrative session has expired. Please sign in again.');
           showLogin();
         }
@@ -108,12 +114,14 @@ document.addEventListener("DOMContentLoaded", () => {
     startAutoRefresh();
   }
 
-  // Force login on page load / reload (never auto-bypass login)
-  sessionStorage.removeItem(SS_ADMIN);
-  localStorage.removeItem(SS_ADMIN);
-  sessionStorage.removeItem(SS_ADMIN_TOKEN);
-  localStorage.removeItem(SS_ADMIN_TOKEN);
-  showLogin();
+  // Restore existing session across page reloads (do not log out on refresh)
+  const existingToken = getAdminToken();
+  const existingAdminFlag = sessionStorage.getItem(SS_ADMIN) || localStorage.getItem(SS_ADMIN);
+  if (existingToken && existingAdminFlag === "true") {
+    showDashboard();
+  } else {
+    showLogin();
+  }
 
   /* ---------- Admin Login Form Submission ---------- */
   adminForm.addEventListener("submit", async (e) => {
@@ -162,8 +170,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (data.token) {
         sessionStorage.setItem(SS_ADMIN_TOKEN, data.token);
+        localStorage.setItem(SS_ADMIN_TOKEN, data.token);
       }
       sessionStorage.setItem(SS_ADMIN, "true");
+      localStorage.setItem(SS_ADMIN, "true");
       adminForm.reset();
       showDashboard();
     } catch (err) {
@@ -196,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================================= */
   async function loadAdminStats() {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const res = await fetch(getApiUrl("/api/admin/stats"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
@@ -254,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================================= */
   async function loadExamActivity() {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const searchInput = document.getElementById("activity-search-input");
       const statusSelect = document.getElementById("activity-status-filter");
 
@@ -713,13 +723,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const refreshActivityBtn = document.getElementById("refresh-activity-btn");
+  if (refreshActivityBtn) {
+    refreshActivityBtn.addEventListener("click", async () => {
+      const icon = document.getElementById("refresh-activity-icon");
+      if (icon) icon.style.transform = "rotate(360deg)";
+      refreshActivityBtn.disabled = true;
+      await Promise.all([loadAdminStats(), loadExamActivity(), loadStudentsFromBackend()]);
+      setTimeout(() => {
+        if (icon) icon.style.transform = "rotate(0deg)";
+        refreshActivityBtn.disabled = false;
+      }, 400);
+    });
+  }
+
   /* =========================================================
-     AUTOMATIC BACKGROUND REFRESH (Every 10 Seconds)
+     AUTOMATIC BACKGROUND REFRESH (Every 3 Seconds)
      ========================================================= */
   function startAutoRefresh() {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
     autoRefreshTimer = setInterval(async () => {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       if (!token) {
         clearInterval(autoRefreshTimer);
         return;
@@ -727,7 +751,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await loadAdminStats();
       await loadExamActivity();
       await loadStudentsFromBackend();
-    }, 10000);
+    }, 3000);
   }
 
   /* =========================================================
@@ -735,7 +759,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================================= */
   async function loadStudentsFromBackend(searchTerm = "") {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const url = "/api/admin/students" + (searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "");
       const res = await fetch(getApiUrl(url), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
@@ -829,7 +853,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const studentId = btn.dataset.studentId;
         const name = btn.dataset.studentName;
         const username = btn.dataset.studentUsername;
-        const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+        const token = getAdminToken();
 
         const modal = document.getElementById("student-history-modal");
         const nameEl = document.getElementById("sh-student-name");
@@ -944,7 +968,7 @@ document.addEventListener("DOMContentLoaded", () => {
     list.querySelectorAll(".toggle-block-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const studentId = btn.dataset.studentId;
-        const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+        const token = getAdminToken();
         try {
           const res = await fetch(getApiUrl(`/api/admin/students/${studentId}/toggle-block`), {
             method: "PUT",
@@ -1004,7 +1028,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+        const token = getAdminToken();
         try {
           const res = await fetch(getApiUrl(`/api/admin/students/${pendingDeleteStudentId}`), {
             method: "DELETE",
@@ -1039,7 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadQuestionsFromBackend(searchTerm = "") {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const url = "/api/admin/questions" + (searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "");
       const res = await fetch(getApiUrl(url), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
@@ -1208,7 +1232,7 @@ document.addEventListener("DOMContentLoaded", () => {
         correct: correct
       };
 
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       try {
         const res = await fetch(getApiUrl("/api/admin/questions"), {
           method: "POST",
@@ -1259,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const optionD = document.getElementById("edit-opt-d").value.trim();
       const correct = parseInt(document.getElementById("edit-correct-answer").value, 10);
 
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       try {
         const res = await fetch(getApiUrl(`/api/admin/questions/${qId}`), {
           method: "PUT",
@@ -1297,7 +1321,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (confirmDeleteBtn) {
     confirmDeleteBtn.addEventListener("click", async () => {
       if (pendingDeleteQuestionId) {
-        const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+        const token = getAdminToken();
         try {
           const res = await fetch(getApiUrl("/api/admin/questions/" + pendingDeleteQuestionId), {
             method: "DELETE",
@@ -1343,7 +1367,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       try {
         const res = await fetch(getApiUrl("/api/admin/reset-defaults"), {
           method: "POST",
@@ -1406,7 +1430,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       try {
         const res = await fetch(getApiUrl("/api/exams/settings"), {
           method: "PUT",
@@ -1435,7 +1459,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================================= */
   async function exportResultsToExcel() {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const res = await fetch(getApiUrl("/api/admin/export/excel"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
@@ -1619,7 +1643,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       try {
         const res = await fetch(getApiUrl("/api/admin/results"), {
           method: "DELETE",
@@ -1656,7 +1680,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!list) return;
 
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const res = await fetch(getApiUrl("/api/admin/leaderboard"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
@@ -1713,7 +1737,7 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================================= */
   async function loadAnalytics() {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const res = await fetch(getApiUrl("/api/admin/analytics"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
@@ -1769,7 +1793,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadAuditLogs() {
     try {
-      const token = sessionStorage.getItem(SS_ADMIN_TOKEN);
+      const token = getAdminToken();
       const res = await fetch(getApiUrl("/api/admin/audit-logs?limit=15"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
