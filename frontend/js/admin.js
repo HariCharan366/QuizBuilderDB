@@ -108,7 +108,6 @@ document.addEventListener("DOMContentLoaded", () => {
     try { renderQuestions(); } catch (e) { console.error(e); }
     try { renderLeaderboard(); } catch (e) { console.error(e); }
     try { loadAnalytics(); } catch (e) { console.error(e); }
-    try { loadAuditLogs(); } catch (e) { console.error(e); }
 
     // Start 10-second automatic polling for centralized multi-device activity
     startAutoRefresh();
