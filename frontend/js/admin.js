@@ -1190,58 +1190,56 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ---------- Total Saved Questions Panel Toggle ---------- */
-  const savedQuestionsToggleHeader = document.getElementById("saved-questions-toggle-header");
-  const toggleSavedQuestionsBtn = document.getElementById("toggle-saved-questions-btn");
-  const savedQuestionsBody = document.getElementById("saved-questions-body");
+  let isSavedQuestionsExpanded = false;
 
-  function toggleSavedQuestionsSection(e) {
-    if (e && e.target && e.target.closest('#toggle-saved-questions-btn') && e.currentTarget === savedQuestionsToggleHeader) {
-      return;
-    }
-    if (!savedQuestionsBody) return;
-    const isHidden = savedQuestionsBody.classList.contains("hidden");
-    const toggleIcon = document.getElementById("saved-questions-toggle-icon");
-    const toggleText = document.getElementById("saved-questions-toggle-text");
+  function setSavedQuestionsExpanded(expand) {
+    isSavedQuestionsExpanded = Boolean(expand);
+    const body = document.getElementById("saved-questions-body");
+    const toggleBtn = document.getElementById("toggle-saved-questions-btn");
+    const header = document.getElementById("saved-questions-toggle-header");
 
-    if (isHidden) {
-      savedQuestionsBody.classList.remove("hidden");
-      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "16px";
-      if (toggleSavedQuestionsBtn) {
-        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">✖</span> <span id="saved-questions-toggle-text">Close Questions</span> ▴';
-        toggleSavedQuestionsBtn.style.background = "#f1f5f9";
-        toggleSavedQuestionsBtn.style.color = "#0f172a";
-        toggleSavedQuestionsBtn.style.border = "1.5px solid #64748b";
+    if (!body) return;
+
+    if (isSavedQuestionsExpanded) {
+      body.classList.remove("hidden");
+      body.style.display = "block";
+      if (header) header.style.marginBottom = "16px";
+      if (toggleBtn) {
+        toggleBtn.innerHTML = '<span id="saved-questions-toggle-icon">✖</span> <span id="saved-questions-toggle-text">Close Questions</span> ▴';
+        toggleBtn.style.background = "#f1f5f9";
+        toggleBtn.style.color = "#0f172a";
+        toggleBtn.style.border = "1.5px solid #64748b";
+        toggleBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
       }
     } else {
-      savedQuestionsBody.classList.add("hidden");
-      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "0";
-      if (toggleSavedQuestionsBtn) {
-        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾';
-        toggleSavedQuestionsBtn.style.background = "#2563eb";
-        toggleSavedQuestionsBtn.style.color = "#ffffff";
-        toggleSavedQuestionsBtn.style.border = "1px solid #1d4ed8";
+      body.classList.add("hidden");
+      body.style.display = "none";
+      if (header) header.style.marginBottom = "0";
+      if (toggleBtn) {
+        toggleBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾';
+        toggleBtn.style.background = "#2563eb";
+        toggleBtn.style.color = "#ffffff";
+        toggleBtn.style.border = "1.5px solid #1d4ed8";
+        toggleBtn.style.boxShadow = "0 2px 5px rgba(37,99,235,0.25)";
       }
     }
   }
 
-  if (savedQuestionsToggleHeader) {
-    savedQuestionsToggleHeader.addEventListener("click", toggleSavedQuestionsSection);
-  }
+  const toggleSavedQuestionsBtn = document.getElementById("toggle-saved-questions-btn");
   if (toggleSavedQuestionsBtn) {
-    toggleSavedQuestionsBtn.addEventListener("click", toggleSavedQuestionsSection);
+    toggleSavedQuestionsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setSavedQuestionsExpanded(!isSavedQuestionsExpanded);
+    });
   }
 
   const closeSavedQuestionsBottomBtn = document.getElementById("close-saved-questions-bottom-btn");
   if (closeSavedQuestionsBottomBtn) {
-    closeSavedQuestionsBottomBtn.addEventListener("click", () => {
-      if (savedQuestionsBody) savedQuestionsBody.classList.add("hidden");
-      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "0";
-      if (toggleSavedQuestionsBtn) {
-        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾';
-        toggleSavedQuestionsBtn.style.background = "#2563eb";
-        toggleSavedQuestionsBtn.style.color = "#ffffff";
-        toggleSavedQuestionsBtn.style.border = "1px solid #1d4ed8";
-      }
+    closeSavedQuestionsBottomBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setSavedQuestionsExpanded(false);
       const panel = document.getElementById("saved-questions-panel");
       if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
     });
