@@ -67,6 +67,14 @@ const initSystem = async () => {
       }
     }
 
+    // Drop legacy unique index on email so multiple accounts can share the same email
+    try {
+      await User.collection.dropIndex('email_1');
+      console.log('[Database] Dropped legacy unique index on email to allow multiple accounts per email.');
+    } catch (_) {
+      // Index did not exist or was already non-unique
+    }
+
     // 2. Ensure Default Questions exist ONLY if the collection is completely empty (never delete existing data)
     const qCount = await Question.countDocuments();
     if (qCount === 0 && Array.isArray(DEFAULT_QUESTIONS) && DEFAULT_QUESTIONS.length > 0) {

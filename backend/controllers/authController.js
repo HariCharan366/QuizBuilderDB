@@ -75,7 +75,7 @@ exports.registerStudent = async (req, res) => {
       });
     }
 
-    // 1. Check duplicate username
+    // 1. Check duplicate username (usernames must remain unique)
     const usernameExists = await User.findOne({ username: cleanUsername });
     if (usernameExists) {
       return res.status(400).json({
@@ -84,17 +84,7 @@ exports.registerStudent = async (req, res) => {
       });
     }
 
-    // 2. Check duplicate email if provided
-    if (cleanEmail) {
-      const emailExists = await User.findOne({ email: cleanEmail });
-      if (emailExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'An account with this email address already exists.'
-        });
-      }
-    }
-
+    // Multiple accounts can be registered with the same email address
     const student = await User.create({
       fullName: String(fullName).trim(),
       username: cleanUsername,
@@ -147,11 +137,11 @@ exports.loginStudent = async (req, res) => {
 
     const cleanIdentifier = String(username).trim().toLowerCase();
 
-    // Query student account (excluding admin accounts from student portal)
-    const student = await User.findOne({
-      $or: [{ username: cleanIdentifier }, { email: cleanIdentifier }],
-      role: 'student'
-    });
+    // Query student account (prefer exact username lookup so multiple accounts sharing an email don't conflict)
+    let student = await User.findOne({ username: cleanIdentifier, role: 'student' });
+    if (!student) {
+      student = await User.findOne({ email: cleanIdentifier, role: 'student' });
+    }
 
     // 1. Account Lockout Check
     if (student && student.isAccountLocked()) {
