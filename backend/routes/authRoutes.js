@@ -75,15 +75,20 @@ router.post(
   '/reset-password',
   authLimiter,
   (req, res, next) => {
+    const hasDirectCreds = req.body.username && req.body.email;
     const token = req.body.resetToken || req.body.token;
-    if (!token || typeof token !== 'string' || !token.trim()) {
+
+    if (!hasDirectCreds && (!token || typeof token !== 'string' || !token.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'Password reset token is required'
+        message: 'Password reset token or registered username and email are required'
       });
     }
-    req.body.resetToken = token.trim();
-    req.body.token = token.trim();
+
+    if (token) {
+      req.body.resetToken = token.trim();
+      req.body.token = token.trim();
+    }
 
     if (!req.body.newPassword || typeof req.body.newPassword !== 'string' || req.body.newPassword.length < 8) {
       return res.status(400).json({

@@ -124,28 +124,28 @@
       <div class="modal-icon" style="text-align: center;">🔑</div>
       <h3 style="text-align: center; margin-bottom: 6px;">Reset Password</h3>
       <p style="text-align: center; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 16px;">
-        Enter your registered username or email to reset your account password.
+        Enter your registered username and email to directly change your account password.
       </p>
       <div id="forgot-alert" class="alert alert-error"></div>
       
       <form id="forgot-form">
         <div class="form-group">
-          <label for="forgot-identifier">Username or Email</label>
-          <input type="text" id="forgot-identifier" placeholder="e.g. charan or student@college.edu" required />
+          <label for="forgot-username">Registered Username</label>
+          <input type="text" id="forgot-username" placeholder="e.g. charan" required autocomplete="username" />
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Request Reset Code</button>
-      </form>
-
-      <form id="reset-form" class="hidden" style="margin-top: 14px;">
         <div class="form-group">
-          <label for="reset-code">Reset Code / Token</label>
-          <input type="text" id="reset-code" required />
+          <label for="forgot-email">Registered Email Address</label>
+          <input type="email" id="forgot-email" placeholder="e.g. charan@example.com" required autocomplete="email" />
         </div>
         <div class="form-group">
           <label for="new-password">New Password</label>
-          <input type="password" id="new-password" required minlength="8" />
+          <input type="password" id="new-password" placeholder="At least 8 characters (letters + numbers)" required minlength="8" autocomplete="new-password" />
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Update Password</button>
+        <div class="form-group">
+          <label for="confirm-new-password">Confirm New Password</label>
+          <input type="password" id="confirm-new-password" placeholder="Re-enter new password" required minlength="8" autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="reset-password-submit-btn">Update Password</button>
       </form>
 
       <div style="margin-top: 14px; text-align: center;">

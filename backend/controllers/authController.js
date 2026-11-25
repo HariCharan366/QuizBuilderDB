@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // Helper to validate password policy: minimum 8 characters, at least 1 letter, at least 1 number
@@ -382,18 +383,25 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// @desc    Reset password using single-use token
+// @desc    Reset password directly using verified username + email, or using single-use token
 // @route   POST /api/auth/reset-password
 // @access  Public
 exports.resetPassword = async (req, res) => {
   try {
+    const { username, email, newPassword, confirmPassword } = req.body;
     const resetToken = req.body.resetToken || req.body.token;
-    const { newPassword } = req.body;
 
-    if (!resetToken || !newPassword) {
+    if (!newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide reset token and new password.'
+        message: 'Please provide your new password.'
+      });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match. Please re-enter the new password.'
       });
     }
 
@@ -404,38 +412,66 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Hash the supplied token to compare with the SHA-256 hash stored in MongoDB
-    const hashedToken = crypto.createHash('sha256').update(String(resetToken).trim()).digest('hex');
+    let user = null;
 
-    // Find student with matching unexpired hashed token
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: new Date() },
-      role: 'student'
-    });
+    // DIRECT PASSWORD RESET: Verified by exact matching Username AND Registered Email
+    if (username && email) {
+      const cleanUsername = String(username).trim().toLowerCase();
+      const cleanEmail = String(email).trim().toLowerCase();
 
-    if (!user) {
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid credentials. The provided username and email do not match any registered student account.'
+        });
+      }
+
+      user = await User.findOne({
+        username: cleanUsername,
+        email: cleanEmail,
+        role: { $ne: 'admin' }
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid credentials. The provided username and email do not match any registered student account.'
+        });
+      }
+    } else if (resetToken) {
+      // TOKEN-BASED RESET: Fallback for reset token
+      const hashedToken = crypto.createHash('sha256').update(String(resetToken).trim()).digest('hex');
+      user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: new Date() },
+        role: { $ne: 'admin' }
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password reset token is invalid or has expired.'
+        });
+      }
+    } else {
       return res.status(400).json({
         success: false,
-        message: 'Password reset token is invalid or has expired.'
+        message: 'Please provide your registered username and email, or a valid reset token.'
       });
     }
 
     // Update password
     user.password = newPassword;
-    // Single-use token: invalidate immediately
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
-    // Invalidate any existing sessions
     user.tokenVersion = (user.tokenVersion || 0) + 1;
-    // Reset lockout counters
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
     await user.save();
 
     res.status(200).json({
       success: true,
-      message: 'Password reset successful! You can now log in with your new password.'
+      message: 'Password updated successfully! You can now log in with your new password.'
     });
   } catch (error) {
     console.error('Reset password error:', error);

@@ -129,6 +129,19 @@ describe('QuizBuilder Core Security & API Test Suite', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+
+    test('POST /api/auth/reset-password rejects direct reset with non-existent username and email', async () => {
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({
+          username: 'nonexistentuser999',
+          email: 'nonexistent999@example.com',
+          newPassword: 'ValidPassword123'
+        });
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Invalid credentials');
+    });
   });
 
   describe('Frontend Static Asset Delivery', () => {

@@ -186,15 +186,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const forgotModal = document.getElementById("forgot-modal");
   const closeForgotModal = document.getElementById("close-forgot-modal");
   const forgotForm = document.getElementById("forgot-form");
-  const resetForm = document.getElementById("reset-form");
   const forgotAlert = document.getElementById("forgot-alert");
 
   if (forgotLink && forgotModal) {
     forgotLink.addEventListener("click", (e) => {
       e.preventDefault();
       hideAlert(forgotAlert);
-      if (forgotForm) forgotForm.classList.remove("hidden");
-      if (resetForm) resetForm.classList.add("hidden");
+      if (forgotForm) forgotForm.reset();
       forgotModal.classList.add("show");
     });
   }
@@ -209,88 +207,68 @@ document.addEventListener("DOMContentLoaded", () => {
     forgotForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       hideAlert(forgotAlert);
-      const identifier = document.getElementById("forgot-identifier").value.trim();
-      const submitBtn = forgotForm.querySelector('button[type="submit"]');
+
+      const username = document.getElementById("forgot-username").value.trim();
+      const email = document.getElementById("forgot-email").value.trim();
+      const newPassword = document.getElementById("new-password").value;
+      const confirmPassword = document.getElementById("confirm-new-password").value;
+      const submitBtn = document.getElementById("reset-password-submit-btn");
+
+      if (!username || !email) {
+        showAlert(forgotAlert, "Please enter both your registered username and email.", "error");
+        return;
+      }
+
+      if (!newPassword || newPassword.length < 8) {
+        showAlert(forgotAlert, "New password must be at least 8 characters long.", "error");
+        return;
+      }
+
+      if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+        showAlert(forgotAlert, "New password must contain both letters and numbers.", "error");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showAlert(forgotAlert, "Passwords do not match. Please re-enter identical passwords.", "error");
+        return;
+      }
 
       try {
         if (submitBtn) {
           submitBtn.disabled = true;
-          submitBtn.textContent = "Sending...";
+          submitBtn.textContent = "Updating Password...";
         }
 
-        const res = await fetch(getApiUrl("/api/auth/forgot-password"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifier, emailOrUsername: identifier })
-        });
-
-        const data = await res.json();
-        forgotForm.classList.add("hidden");
-        if (resetForm) resetForm.classList.remove("hidden");
-        showAlert(
-          forgotAlert,
-          data.message || "If an account exists, reset instructions have been dispatched. Enter the reset code and your new password below.",
-          "success"
-        );
-      } catch (err) {
-        showAlert(forgotAlert, "Failed to process reset request.", "error");
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Send Reset Link";
-        }
-      }
-    });
-  }
-
-  if (resetForm) {
-    resetForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideAlert(forgotAlert);
-      const resetToken = document.getElementById("reset-code").value.trim();
-      const newPassword = document.getElementById("new-password").value;
-
-      if (!resetToken || !newPassword) {
-        showAlert(forgotAlert, "Please provide the reset code and your new password.", "error");
-        return;
-      }
-
-      if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-        showAlert(forgotAlert, "New password must be at least 8 characters long and contain both letters and numbers.", "error");
-        return;
-      }
-
-      try {
         const res = await fetch(getApiUrl("/api/auth/reset-password"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resetToken, token: resetToken, newPassword })
+          body: JSON.stringify({ username, email, newPassword, confirmPassword })
         });
-        const data = await res.json();
 
+        const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.message || "Failed to reset password.");
+          throw new Error(data.message || "Failed to update password. Please verify your username and email.");
         }
 
-        showAlert(forgotAlert, "Password updated successfully! You can now log in.", "success");
+        showAlert(forgotAlert, "Password updated successfully! You can now log in with your new password.", "success");
         setTimeout(() => {
           forgotModal.classList.remove("show");
+          // Pre-fill username on login form
+          const loginUser = document.getElementById("login-username");
+          if (loginUser) loginUser.value = username;
+          // Switch to login tab
+          const loginTab = document.querySelector('[data-tab="login"]');
+          if (loginTab) loginTab.click();
         }, 1500);
       } catch (err) {
-        showAlert(forgotAlert, err.message || "Error updating password.", "error");
+        showAlert(forgotAlert, err.message || "Failed to update password. Please check your credentials.", "error");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Update Password";
+        }
       }
     });
-  }
-
-  // Check URL query parameters for reset token (e.g. from email link ?token=XYZ)
-  const urlParams = new URLSearchParams(window.location.search);
-  const tokenParam = urlParams.get("token");
-  if (tokenParam && forgotModal) {
-    const resetCodeInput = document.getElementById("reset-code");
-    if (resetCodeInput) resetCodeInput.value = tokenParam;
-    if (forgotForm) forgotForm.classList.add("hidden");
-    if (resetForm) resetForm.classList.remove("hidden");
-    forgotModal.classList.add("show");
-    showAlert(forgotAlert, "Reset token detected. Please enter your new password below.", "success");
   }
 });
