@@ -327,11 +327,22 @@
 
       <!-- Security Audit Trails Panel -->
       <div class="panel">
-        <div class="panel-header">
-          <h2>SECURITY AUDIT TRAIL</h2>
-          <button id="refresh-audit-logs-btn" class="btn btn-outline btn-sm">Refresh Logs</button>
+        <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2>SECURITY AUDIT TRAIL</h2>
+            <p style="font-size:0.85rem; color: var(--gray-600); margin: 4px 0 0;">
+              Tracks administrative security events, question modifications, and exam operations.
+            </p>
+          </div>
+          <button id="refresh-audit-logs-btn" style="background:#f1f5f9; color:#1e293b; border:1px solid #cbd5e1; padding:6px 14px; border-radius:6px; font-size:0.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+            <span>🔄</span> Refresh Logs
+          </button>
         </div>
-        <div id="audit-logs-list"></div>
+        <div id="audit-logs-list">
+          <div class="empty-state" style="padding: 24px; text-align: center; color: var(--gray-600); font-size: 0.9rem;">
+            🛡️ No security audit events recorded yet. Administrative actions (logins, question edits, student blocking, retakes) are logged here.
+          </div>
+        </div>
       </div>
 
     </div>

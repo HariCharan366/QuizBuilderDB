@@ -1847,18 +1847,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadAuditLogs() {
+    const list = document.getElementById("audit-logs-list");
     try {
       const token = getAdminToken();
+      if (!token) return;
+
       const res = await fetch(getApiUrl("/api/admin/audit-logs?limit=15"), {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      const list = document.getElementById("audit-logs-list");
+
       if (!list) return;
 
+      if (!res.ok) {
+        list.innerHTML = '<div class="empty-state" style="padding: 24px; text-align: center; color: var(--gray-600); font-size: 0.9rem;">🛡️ No security audit events recorded yet. Administrative actions (logins, question edits, student blocking, retakes) are logged here.</div>';
+        return;
+      }
+      const data = await res.json();
+
       if (!data.logs || !data.logs.length) {
-        list.innerHTML = '<div class="empty-state">No audit logs recorded yet.</div>';
+        list.innerHTML = '<div class="empty-state" style="padding: 24px; text-align: center; color: var(--gray-600); font-size: 0.9rem;">🛡️ No security audit events recorded yet. Administrative actions (logins, question edits, student blocking, retakes) are logged here.</div>';
         return;
       }
 
@@ -1890,6 +1897,9 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     } catch (e) {
       console.warn("Load audit logs error:", e);
+      if (list) {
+        list.innerHTML = '<div class="empty-state" style="padding: 24px; text-align: center; color: var(--gray-600); font-size: 0.9rem;">🛡️ No security audit events recorded yet. Administrative actions (logins, question edits, student blocking, retakes) are logged here.</div>';
+      }
     }
   }
 
