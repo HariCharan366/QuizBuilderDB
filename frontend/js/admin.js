@@ -561,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="review-item ${statusClass}" style="margin-bottom:12px; background:white;">
           <div class="q-top">
             <div>
-              <span class="q-number">Question ${qNum}</span>
+              <span class="q-number" style="font-weight:700; color:var(--navy-800, #1e293b); font-size:0.88rem; background:transparent !important; padding:0;">Question ${qNum}</span>
               <div class="q-text">${escapeHtml(a.question || "")}</div>
             </div>
             <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -1145,7 +1145,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="question-card" style="margin-bottom:12px; padding:14px; border:1px solid #e2e8f0; border-radius:8px; background:white;">
           <div class="q-top" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
             <div style="flex:1;">
-              <span class="q-number" style="font-weight:700; color:var(--navy-700); font-size:0.85rem;">Question ${index + 1}</span>
+              <span class="q-number" style="font-weight:700; color:var(--navy-800, #1e293b); font-size:0.88rem; background:transparent !important; padding:0;">Question ${index + 1}</span>
               <div class="q-text" style="font-size:0.95rem; font-weight:500; margin-top:4px; line-height:1.4;">${escapeHtml(q.question)}</div>
             </div>
             <div style="display:flex; gap:6px; flex-shrink:0;">
