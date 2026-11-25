@@ -242,7 +242,7 @@ exports.submitExam = async (req, res) => {
       }
       const dbExam = await Exam.findById(session.exam);
       let clientResult = existingResult.toObject();
-      if (dbExam && !dbExam.showAnswersAfterSubmit && req.user.role === 'student') {
+      if (dbExam && dbExam.showAnswersAfterSubmit === false && req.user.role === 'student') {
         delete clientResult.answers;
       }
       return res.status(200).json({
@@ -276,8 +276,8 @@ exports.submitExam = async (req, res) => {
     const { result, isExisting, dbExam } = await evaluateExamSession(session, answers, timeTakenSeconds, id);
 
     let clientResult = result.toObject ? result.toObject() : result;
-    // Policy check: If showAnswersAfterSubmit is false, omit answer review from student response
-    if (dbExam && !dbExam.showAnswersAfterSubmit && req.user.role === 'student') {
+    // Policy check: If showAnswersAfterSubmit is explicitly false, omit answer review from student response
+    if (dbExam && dbExam.showAnswersAfterSubmit === false && req.user.role === 'student') {
       delete clientResult.answers;
     }
 
@@ -379,10 +379,10 @@ exports.getResultById = async (req, res) => {
     }
 
     let clientResult = result.toObject();
-    // Answer Privacy Check: only show answers if showAnswersAfterSubmit is enabled or if user is admin
+    // Answer Privacy Check: only hide answers if showAnswersAfterSubmit is explicitly false and user is student
     if (req.user && req.user.role === 'student') {
       const exam = await Exam.findById(result.exam);
-      if (exam && !exam.showAnswersAfterSubmit) {
+      if (exam && exam.showAnswersAfterSubmit === false) {
         delete clientResult.answers;
       }
     }
@@ -410,14 +410,17 @@ exports.getMyResults = async (req, res) => {
 
     const results = await Result.find({ username: targetUsername }).sort({ createdAt: -1 });
 
-    // Sanitize results for students: if showAnswersAfterSubmit is false, omit answer review array
+    // Include answers for student results unless explicitly disabled on the active examination
     let sanitizedResults = results;
     if (req.user && req.user.role === 'student') {
-      sanitizedResults = results.map(r => {
-        const obj = r.toObject();
-        delete obj.answers; // Protect answers in list view
-        return obj;
-      });
+      const activeExam = await Exam.findOne({ isActive: true });
+      if (activeExam && activeExam.showAnswersAfterSubmit === false) {
+        sanitizedResults = results.map(r => {
+          const obj = r.toObject();
+          delete obj.answers;
+          return obj;
+        });
+      }
     }
 
     res.status(200).json({

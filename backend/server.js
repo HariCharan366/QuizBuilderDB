@@ -95,10 +95,17 @@ const initSystem = async () => {
         maxWarnings: 3,
         passingPercentage: 50,
         isActive: true,
-        randomizeQuestions: true
+        randomizeQuestions: true,
+        showAnswersAfterSubmit: true
       });
       console.log('[Seed] Default examination configured (15 mins).');
     }
+
+    // Ensure showAnswersAfterSubmit is enabled across examinations so students can review detailed answers
+    await Exam.updateMany(
+      { $or: [{ showAnswersAfterSubmit: false }, { showAnswersAfterSubmit: { $exists: false } }] },
+      { $set: { showAnswersAfterSubmit: true } }
+    );
 
     // 4. Ensure existing questions without an exam are linked to the active examination
     const unassociated = await Question.countDocuments({ $or: [{ exam: null }, { exam: { $exists: false } }] });

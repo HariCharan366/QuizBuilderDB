@@ -50,7 +50,7 @@ const examSchema = new mongoose.Schema(
     },
     showAnswersAfterSubmit: {
       type: Boolean,
-      default: false
+      default: true
     },
     startDate: {
       type: Date,
