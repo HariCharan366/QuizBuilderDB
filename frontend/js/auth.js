@@ -51,17 +51,30 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    let wakeTimer = null;
+    let abortCtrl = null;
     try {
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = "Logging in...";
       }
 
+      wakeTimer = setTimeout(() => {
+        if (submitBtn && submitBtn.disabled) {
+          submitBtn.textContent = "Logging in... (Waking up server, please wait)";
+        }
+      }, 3000);
+
+      abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 60000);
+
       const res = await fetch(getApiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        signal: abortCtrl.signal
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -86,8 +99,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.location.href = "exam.html";
     } catch (err) {
-      showAlert(loginAlert, err.message || "Invalid username or password.", "error");
+      if (err.name === 'AbortError') {
+        showAlert(loginAlert, "Server took too long to respond. The cloud service may be waking up — please click Login again.", "error");
+      } else {
+        showAlert(loginAlert, err.message || "Invalid username or password.", "error");
+      }
     } finally {
+      if (wakeTimer) clearTimeout(wakeTimer);
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "Login";

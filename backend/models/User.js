@@ -76,6 +76,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.index({ username: 1, role: 1 });
+userSchema.index({ email: 1, role: 1 });
+
 // Helper to check if account is temporarily locked
 userSchema.methods.isAccountLocked = function () {
   return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());

@@ -130,17 +130,30 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    let wakeTimer = null;
+    let abortCtrl = null;
     try {
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = "Authenticating...";
       }
 
+      wakeTimer = setTimeout(() => {
+        if (submitBtn && submitBtn.disabled) {
+          submitBtn.textContent = "Authenticating... (Waking up server, please wait)";
+        }
+      }, 3000);
+
+      abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 60000);
+
       const res = await fetch(getApiUrl("/api/admin/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, password: pass })
+        body: JSON.stringify({ id, password: pass }),
+        signal: abortCtrl.signal
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
       if (!res.ok) {
@@ -154,9 +167,14 @@ document.addEventListener("DOMContentLoaded", () => {
       adminForm.reset();
       showDashboard();
     } catch (err) {
-      adminAlert.textContent = err.message || "Invalid Admin ID or Password.";
+      if (err.name === 'AbortError') {
+        adminAlert.textContent = "Server took too long to respond. The cloud service may be waking up — please click Login to Dashboard again.";
+      } else {
+        adminAlert.textContent = err.message || "Invalid Admin ID or Password.";
+      }
       adminAlert.className = "alert alert-error show";
     } finally {
+      if (wakeTimer) clearTimeout(wakeTimer);
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "Login to Dashboard";
