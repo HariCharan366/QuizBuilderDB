@@ -1206,20 +1206,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isHidden) {
       savedQuestionsBody.classList.remove("hidden");
       if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "16px";
-      if (toggleIcon) toggleIcon.textContent = "🙈";
-      if (toggleText) toggleText.textContent = "Tap to Hide Saved Questions";
       if (toggleSavedQuestionsBtn) {
-        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">🙈</span> <span id="saved-questions-toggle-text">Tap to Hide Saved Questions</span> ▴';
-        toggleSavedQuestionsBtn.style.background = "#e2e8f0";
+        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">✖</span> <span id="saved-questions-toggle-text">Close Questions</span> ▴';
+        toggleSavedQuestionsBtn.style.background = "#f1f5f9";
+        toggleSavedQuestionsBtn.style.color = "#0f172a";
+        toggleSavedQuestionsBtn.style.border = "1.5px solid #64748b";
       }
     } else {
       savedQuestionsBody.classList.add("hidden");
       if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "0";
-      if (toggleIcon) toggleIcon.textContent = "👁️";
-      if (toggleText) toggleText.textContent = "Tap to View Saved Questions";
       if (toggleSavedQuestionsBtn) {
-        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Tap to View Saved Questions</span> ▾';
-        toggleSavedQuestionsBtn.style.background = "";
+        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾';
+        toggleSavedQuestionsBtn.style.background = "#2563eb";
+        toggleSavedQuestionsBtn.style.color = "#ffffff";
+        toggleSavedQuestionsBtn.style.border = "1px solid #1d4ed8";
       }
     }
   }
@@ -1229,6 +1229,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (toggleSavedQuestionsBtn) {
     toggleSavedQuestionsBtn.addEventListener("click", toggleSavedQuestionsSection);
+  }
+
+  const closeSavedQuestionsBottomBtn = document.getElementById("close-saved-questions-bottom-btn");
+  if (closeSavedQuestionsBottomBtn) {
+    closeSavedQuestionsBottomBtn.addEventListener("click", () => {
+      if (savedQuestionsBody) savedQuestionsBody.classList.add("hidden");
+      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "0";
+      if (toggleSavedQuestionsBtn) {
+        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾';
+        toggleSavedQuestionsBtn.style.background = "#2563eb";
+        toggleSavedQuestionsBtn.style.color = "#ffffff";
+        toggleSavedQuestionsBtn.style.border = "1px solid #1d4ed8";
+      }
+      const panel = document.getElementById("saved-questions-panel");
+      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   const questionSearchInput = document.getElementById("question-search-input");

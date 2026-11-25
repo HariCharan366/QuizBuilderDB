@@ -200,17 +200,17 @@
       </div>
 
       <!-- Saved Questions -->
-      <div class="panel" id="saved-questions-panel">
-        <div class="panel-header" id="saved-questions-toggle-header" style="cursor: pointer; user-select: none; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <h2 style="margin:0; font-size:1.15rem; color:var(--navy-900); display:flex; align-items:center; gap:8px;">
+      <div class="panel" id="saved-questions-panel" style="border: 1px solid var(--gray-200); box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 24px;">
+        <div class="panel-header" id="saved-questions-toggle-header" style="cursor: pointer; user-select: none; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h2 style="margin:0; font-size:1.15rem; color:var(--navy-900); font-weight:700;">
               SAVED QUESTIONS
             </h2>
-            <span class="count-badge" id="questions-count-badge">0 questions</span>
+            <span class="count-badge" id="questions-count-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:4px 12px; border-radius:999px; font-size:0.8rem;">0 questions</span>
           </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <button type="button" id="toggle-saved-questions-btn" class="btn btn-outline btn-sm" style="font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
-              <span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Tap to View Saved Questions</span> ▾
+          <div>
+            <button type="button" id="toggle-saved-questions-btn" style="background: #2563eb; color: #ffffff; border: 1px solid #1d4ed8; padding: 9px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 2px 4px rgba(37,99,235,0.2); transition: all 0.2s ease;">
+              <span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Click to View Questions</span> ▾
             </button>
           </div>
         </div>
@@ -218,10 +218,16 @@
         <div id="saved-questions-body" class="hidden" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
             <input type="text" id="question-search-input" placeholder="🔍 Search question statement..."
-              style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:240px; flex:1;" />
+              style="padding:9px 14px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:260px; flex:1;" />
             <button id="reset-questions-btn" class="btn btn-danger btn-sm">Reset Default Questions</button>
           </div>
           <div id="questions-list"></div>
+          
+          <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+            <button type="button" id="close-saved-questions-bottom-btn" style="background: #f1f5f9; color: #1e293b; border: 1.5px solid #94a3b8; padding: 9px 20px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;">
+              <span>✖ Close Questions</span> ▴
+            </button>
+          </div>
         </div>
       </div>
 
