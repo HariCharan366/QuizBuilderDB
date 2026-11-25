@@ -1142,24 +1142,51 @@ document.addEventListener("DOMContentLoaded", () => {
       }).join("");
 
       return `
-        <div class="question-card">
-          <div class="q-top">
-            <div>
-              <span class="q-number">Question ${index + 1}</span>
-              <div class="q-text">${escapeHtml(q.question)}</div>
+        <div class="question-card" style="margin-bottom:12px; padding:14px; border:1px solid #e2e8f0; border-radius:8px; background:white;">
+          <div class="q-top" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1;">
+              <span class="q-number" style="font-weight:700; color:var(--navy-700); font-size:0.85rem;">Question ${index + 1}</span>
+              <div class="q-text" style="font-size:0.95rem; font-weight:500; margin-top:4px; line-height:1.4;">${escapeHtml(q.question)}</div>
             </div>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-shrink:0;">
               <button class="btn btn-outline btn-sm edit-q-btn" data-edit-id="${qId}" data-edit-index="${index}">Edit</button>
               <button class="btn btn-danger btn-sm delete-q-btn" data-delete-id="${qId}" data-delete-index="${index}">Delete</button>
             </div>
           </div>
-          <ul class="option-list">${optionsHtml}</ul>
-          <div style="font-size:0.82rem; color: var(--gray-600);">
-            Correct Answer: <strong>Option ${OPTION_LABELS[q.correct]}</strong>
+
+          <div style="margin-top:8px;">
+            <button type="button" class="btn btn-ghost btn-sm toggle-q-options-btn" data-toggle-index="${index}" style="font-size:0.8rem; padding:4px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; color:#334155; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+              <span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾
+            </button>
+          </div>
+
+          <div id="q-options-${index}" class="q-options-collapse hidden" style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0;">
+            <ul class="option-list" style="margin-bottom:8px;">${optionsHtml}</ul>
+            <div style="font-size:0.82rem; color: var(--gray-600); margin-top:6px;">
+              Correct Answer: <strong style="color:var(--success, #166534);">Option ${OPTION_LABELS[q.correct]} (${escapeHtml(opts[q.correct] || "")})</strong>
+            </div>
           </div>
         </div>
       `;
     }).join("");
+
+    list.querySelectorAll(".toggle-q-options-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = btn.dataset.toggleIndex;
+        const target = document.getElementById(`q-options-${idx}`);
+        if (!target) return;
+        const isHidden = target.classList.contains("hidden");
+        if (isHidden) {
+          target.classList.remove("hidden");
+          btn.innerHTML = `<span class="toggle-icon">🙈</span> <span class="toggle-label">Tap to hide options</span> ▴`;
+          btn.style.background = "#e2e8f0";
+        } else {
+          target.classList.add("hidden");
+          btn.innerHTML = `<span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾`;
+          btn.style.background = "#f8fafc";
+        }
+      });
+    });
 
     list.querySelectorAll(".edit-q-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1198,6 +1225,36 @@ document.addEventListener("DOMContentLoaded", () => {
       qDebounce = setTimeout(() => {
         loadQuestionsFromBackend(e.target.value.trim());
       }, 250);
+    });
+  }
+
+  const toggleAllOptionsBtn = document.getElementById("toggle-all-q-options-btn");
+  if (toggleAllOptionsBtn) {
+    let allExpanded = false;
+    toggleAllOptionsBtn.addEventListener("click", () => {
+      allExpanded = !allExpanded;
+      const collapses = document.querySelectorAll(".q-options-collapse");
+      const toggleBtns = document.querySelectorAll(".toggle-q-options-btn");
+
+      collapses.forEach((el) => {
+        if (allExpanded) {
+          el.classList.remove("hidden");
+        } else {
+          el.classList.add("hidden");
+        }
+      });
+
+      toggleBtns.forEach((btn) => {
+        if (allExpanded) {
+          btn.innerHTML = `<span class="toggle-icon">🙈</span> <span class="toggle-label">Tap to hide options</span> ▴`;
+          btn.style.background = "#e2e8f0";
+        } else {
+          btn.innerHTML = `<span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾`;
+          btn.style.background = "#f8fafc";
+        }
+      });
+
+      toggleAllOptionsBtn.innerHTML = allExpanded ? "🙈 Collapse All Options" : "👁️ Expand All Options";
     });
   }
 
