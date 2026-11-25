@@ -381,8 +381,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusBadge = isSession
         ? '<span style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-weight:bold;">In Progress ⏳</span>'
         : record.percentage !== null && record.percentage !== undefined
-        ? `<strong style="color:${record.percentage >= 50 ? '#166534' : '#991b1b'};">Score: ${record.score || (correctCount + '/' + totalQ)} (${record.percentage}%)</strong>`
-        : `<strong>Score: ${record.score || (correctCount + '/' + totalQ)}</strong>`;
+          ? `<strong style="color:${record.percentage >= 50 ? '#166534' : '#991b1b'};">Score: ${record.score || (correctCount + '/' + totalQ)} (${record.percentage}%)</strong>`
+          : `<strong>Score: ${record.score || (correctCount + '/' + totalQ)}</strong>`;
 
       statsBar.innerHTML = `
         <div style="margin-right:8px;">${statusBadge}</div>
@@ -474,32 +474,32 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusLabel = !hasSel
         ? '<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">Not Answered</span>'
         : isCorr
-        ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✓ Correct</span>'
-        : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✗ Incorrect</span>';
+          ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✓ Correct</span>'
+          : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:600;">✗ Incorrect</span>';
 
       const borderCol = !hasSel ? '#cbd5e1' : isCorr ? '#22c55e' : '#ef4444';
 
       const optsHtml = Array.isArray(a.options)
         ? a.options.map((opt, oi) => {
-            const isStudentChoice = selIdx !== null && oi === selIdx;
-            const isCorrectChoice = corrIdx !== null && oi === corrIdx;
+          const isStudentChoice = selIdx !== null && oi === selIdx;
+          const isCorrectChoice = corrIdx !== null && oi === corrIdx;
 
-            let optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #e2e8f0; background:white;';
-            let tag = '';
+          let optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #e2e8f0; background:white;';
+          let tag = '';
 
-            if (isStudentChoice && isCorrectChoice) {
-              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #22c55e; background:#f0fdf4; font-weight:600;';
-              tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Candidate\'s Choice (Correct)</span>';
-            } else if (isStudentChoice && !isCorrectChoice) {
-              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #ef4444; background:#fef2f2; font-weight:600;';
-              tag = '<span style="margin-left:8px; color:#991b1b; font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">✗ Candidate\'s Choice (Wrong)</span>';
-            } else if (isCorrectChoice) {
-              optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #86efac; background:#f0fdf4;';
-              tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Correct Answer</span>';
-            }
+          if (isStudentChoice && isCorrectChoice) {
+            optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #22c55e; background:#f0fdf4; font-weight:600;';
+            tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Candidate\'s Choice (Correct)</span>';
+          } else if (isStudentChoice && !isCorrectChoice) {
+            optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:2px solid #ef4444; background:#fef2f2; font-weight:600;';
+            tag = '<span style="margin-left:8px; color:#991b1b; font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">✗ Candidate\'s Choice (Wrong)</span>';
+          } else if (isCorrectChoice) {
+            optStyle = 'padding:8px 12px; border-radius:6px; margin-bottom:6px; font-size:0.85rem; border:1px solid #86efac; background:#f0fdf4;';
+            tag = '<span style="margin-left:8px; color:#166534; font-size:0.75rem; background:#dcfce7; padding:2px 6px; border-radius:4px;">✓ Correct Answer</span>';
+          }
 
-            return `<li style="${optStyle} list-style:none;"><strong>${OPTION_LABELS_R[oi] || oi}.</strong> ${escapeHtml(opt || "")}${tag}</li>`;
-          }).join("")
+          return `<li style="${optStyle} list-style:none;"><strong>${OPTION_LABELS_R[oi] || oi}.</strong> ${escapeHtml(opt || "")}${tag}</li>`;
+        }).join("")
         : '';
 
       const qNum = (a.index !== null && a.index !== undefined) ? a.index : (origIdx + 1);
@@ -537,22 +537,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const optsHtml = Array.isArray(a.options)
         ? a.options.map((opt, oi) => {
-            const isCorrectAns = oi === corrIdx;
-            const isSelected = oi === selIdx;
-            let cls = "";
-            let tag = "";
-            if (isCorrectAns) {
-              cls += " is-correct-answer";
-              tag += " ✓ Correct Answer";
-            }
-            if (isSelected && !isCorrectAns) {
-              cls += " is-wrong-selected";
-              tag += " ✗ Student's Answer";
-            } else if (isSelected && isCorrectAns) {
-              tag += " (Student's Answer)";
-            }
-            return `<li class="${cls.trim()}">${OPTION_LABELS_R[oi] || oi}. ${escapeHtml(opt || "")}${tag ? " —" + tag : ""}</li>`;
-          }).join("")
+          const isCorrectAns = oi === corrIdx;
+          const isSelected = oi === selIdx;
+          let cls = "";
+          let tag = "";
+          if (isCorrectAns) {
+            cls += " is-correct-answer";
+            tag += " ✓ Correct Answer";
+          }
+          if (isSelected && !isCorrectAns) {
+            cls += " is-wrong-selected";
+            tag += " ✗ Student's Answer";
+          } else if (isSelected && isCorrectAns) {
+            tag += " (Student's Answer)";
+          }
+          return `<li class="${cls.trim()}">${OPTION_LABELS_R[oi] || oi}. ${escapeHtml(opt || "")}${tag ? " —" + tag : ""}</li>`;
+        }).join("")
         : "";
 
       const qNum = (a.index !== null && a.index !== undefined) ? a.index : (i + 1);
@@ -591,8 +591,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusBadge = isActive
         ? '<span style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">⏳ In Progress</span>'
         : isPassed
-        ? '<span style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✓ Passed</span>'
-        : '<span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✗ Failed</span>';
+          ? '<span style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✓ Passed</span>'
+          : '<span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:bold;">✗ Failed</span>';
 
       const hasAnswers = Array.isArray(item.answers) && item.answers.length > 0;
       const detailsBtn = hasAnswers
@@ -880,8 +880,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 const statusBadge = isActive
                   ? '<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">In Progress</span>'
                   : isPass
-                  ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Passed</span>'
-                  : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Failed</span>';
+                    ? '<span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Passed</span>'
+                    : '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Failed</span>';
 
                 const totalQ = h.total || h.totalQuestions || 40;
                 const attempted = h.questionsAttempted !== undefined
@@ -1189,7 +1189,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  
+
   const questionSearchInput = document.getElementById("question-search-input");
   if (questionSearchInput) {
     let qDebounce = null;
