@@ -434,6 +434,7 @@ exports.getStudentProfile = async (req, res) => {
 
         return {
           questionId: q.questionId,
+          index: q.index || (qIdx + 1),
           question: q.question,
           options: q.options || [],
           selectedIndex: hasSelected ? Number(selectedIndex) : null,
@@ -498,7 +499,15 @@ exports.getStudentProfile = async (req, res) => {
         attemptNumber: r.attemptNumber || 1,
         isRetake: r.isRetake || ((r.attemptNumber || 1) > 1),
         isActive: false,
-        answers: r.answers || []
+        answers: (r.answers || []).map((a, aIdx) => ({
+          questionId: a.questionId || null,
+          index: (a.index !== null && a.index !== undefined) ? a.index : (aIdx + 1),
+          question: a.question || '',
+          options: a.options || [],
+          selectedIndex: a.selectedIndex,
+          correctIndex: a.correctIndex,
+          isCorrect: a.isCorrect
+        }))
       };
     });
 
@@ -725,6 +734,7 @@ exports.getExamActivity = async (req, res) => {
 
         return {
           questionId: q.questionId,
+          index: q.index || (qIdx + 1),
           question: q.question,
           options: q.options || [],
           selectedIndex: hasSelected ? Number(selectedIndex) : null,
@@ -789,7 +799,15 @@ exports.getExamActivity = async (req, res) => {
       warnings: r.warnings || 0,
       attemptNumber: r.attemptNumber || 1,
       isRetake: r.isRetake || ((r.attemptNumber || 1) > 1),
-      answers: r.answers || []
+      answers: (r.answers || []).map((a, aIdx) => ({
+        questionId: a.questionId || null,
+        index: (a.index !== null && a.index !== undefined) ? a.index : (aIdx + 1),
+        question: a.question || '',
+        options: a.options || [],
+        selectedIndex: a.selectedIndex,
+        correctIndex: a.correctIndex,
+        isCorrect: a.isCorrect
+      }))
     }));
 
     let combinedActivity = [];

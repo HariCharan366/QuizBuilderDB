@@ -143,11 +143,12 @@
                 })
                 .join("");
 
+              const qNum = (a.index !== null && a.index !== undefined) ? a.index : (i + 1);
               return `
                 <div class="review-item ${statusClass}">
                   <div class="q-top">
                     <div>
-                      <span class="q-number">Question ${i + 1}</span>
+                      <span class="q-number">Question ${qNum}</span>
                       <div class="q-text">${escapeHtml(a.question)}</div>
                     </div>
                     <span class="status-badge ${statusClass}">${statusLabel}</span>

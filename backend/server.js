@@ -12,6 +12,7 @@ const User = require('./models/User');
 const Question = require('./models/Question');
 const Exam = require('./models/Exam');
 const Result = require('./models/Result');
+const ExamSession = require('./models/ExamSession');
 const { DEFAULT_QUESTIONS } = require('./data/seedQuestions');
 
 const app = express();
@@ -107,6 +108,53 @@ const initSystem = async () => {
         { $set: { exam: defaultExam._id } }
       );
       console.log(`[Seed] Associated ${unassociated} questions with examination: '${defaultExam.title}'.`);
+    }
+
+    // 5. Automatic Result Question Order Alignment: Re-align legacy results so their answers match the candidate's exact session sequence
+    try {
+      const allResults = await Result.find({ session: { $ne: null } });
+      let alignedCount = 0;
+      for (const resDoc of allResults) {
+        if (!resDoc.session || !Array.isArray(resDoc.answers) || resDoc.answers.length === 0) continue;
+
+        const sessionDoc = await ExamSession.findById(resDoc.session);
+        if (!sessionDoc || !Array.isArray(sessionDoc.questionsData) || sessionDoc.questionsData.length === 0) continue;
+
+        const reordered = sessionDoc.questionsData.map((sq, sIdx) => {
+          const sqText = (sq.question || '').trim().toLowerCase();
+          const sqId = sq.questionId ? sq.questionId.toString() : '';
+
+          const found = resDoc.answers.find(a => {
+            if (a.questionId && sqId && a.questionId.toString() === sqId) return true;
+            if (a.question && (a.question.trim().toLowerCase() === sqText)) return true;
+            return false;
+          });
+
+          if (found) {
+            return {
+              questionId: sqId || found.questionId || null,
+              index: sIdx + 1,
+              question: sq.question || found.question,
+              options: (sq.options && sq.options.length > 0) ? sq.options : found.options,
+              selectedIndex: found.selectedIndex,
+              correctIndex: found.correctIndex,
+              isCorrect: found.isCorrect
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (reordered.length === resDoc.answers.length) {
+          resDoc.answers = reordered;
+          await resDoc.save();
+          alignedCount++;
+        }
+      }
+      if (alignedCount > 0) {
+        console.log(`[Migration] Successfully aligned ${alignedCount} legacy results to their exact examination session order.`);
+      }
+    } catch (migErr) {
+      console.warn('[Migration Warning] Result alignment check:', migErr.message);
     }
   } catch (err) {
     console.warn('[Seed Warning]', err.message);

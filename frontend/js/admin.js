@@ -492,10 +492,12 @@ document.addEventListener("DOMContentLoaded", () => {
           }).join("")
         : '';
 
+      const qNum = (a.index !== null && a.index !== undefined) ? a.index : (origIdx + 1);
+
       return `
         <div style="border:1px solid ${borderCol}; border-left:4px solid ${borderCol}; border-radius:8px; padding:14px; margin-bottom:12px; background:white;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:700; font-size:0.9rem; color:#1e293b;">Question ${origIdx + 1} of ${totalQ}</span>
+            <span style="font-weight:700; font-size:0.9rem; color:#1e293b;">Question ${qNum} of ${totalQ}</span>
             <div>${statusLabel}</div>
           </div>
           <div style="font-size:0.92rem; color:#0f172a; margin-bottom:10px; font-weight:500;">
@@ -543,11 +545,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }).join("")
         : "";
 
+      const qNum = (a.index !== null && a.index !== undefined) ? a.index : (i + 1);
+
       return `
         <div class="review-item ${statusClass}" style="margin-bottom:12px; background:white;">
           <div class="q-top">
             <div>
-              <span class="q-number">Question ${i + 1}</span>
+              <span class="q-number">Question ${qNum}</span>
               <div class="q-text">${escapeHtml(a.question || "")}</div>
             </div>
             <span class="status-badge ${statusClass}">${statusLabel}</span>

@@ -100,6 +100,8 @@ const resultSchema = new mongoose.Schema(
     },
     answers: [
       {
+        questionId: { type: String, default: null },
+        index: { type: Number, default: null },
         question: String,
         options: [String],
         selectedIndex: { type: Number, default: null },
