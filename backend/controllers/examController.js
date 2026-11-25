@@ -438,12 +438,23 @@ exports.recordWarning = async (req, res) => {
 
     await session.save();
 
+    let resultPayload = undefined;
+    if (evalResult && evalResult.result) {
+      const rObj = evalResult.result.toObject ? evalResult.result.toObject() : evalResult.result;
+      resultPayload = {
+        id: rObj.id || rObj._id,
+        score: rObj.score,
+        total: rObj.total,
+        percentage: rObj.percentage
+      };
+    }
+
     res.status(200).json({
       success: true,
       warnings: session.warnings,
       maxWarnings: maxAllowed,
       autoSubmit: autoSubmitted,
-      result: evalResult ? evalResult.result : undefined
+      result: resultPayload
     });
   } catch (error) {
     console.error('Record warning error:', error);

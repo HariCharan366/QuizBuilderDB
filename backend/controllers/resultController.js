@@ -254,9 +254,15 @@ exports.submitExam = async (req, res) => {
     }
 
     if (session.status === 'submitted') {
-      return res.status(400).json({
-        success: false,
-        message: 'Examination session has already been submitted.'
+      const { result, isExisting, dbExam } = await evaluateExamSession(session, answers, timeTakenSeconds, id);
+      let clientResult = result.toObject ? result.toObject() : result;
+      if (dbExam && dbExam.showAnswersAfterSubmit === false && req.user.role === 'student') {
+        delete clientResult.answers;
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Exam evaluated successfully on the server.',
+        result: clientResult
       });
     }
 

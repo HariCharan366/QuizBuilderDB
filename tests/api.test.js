@@ -191,5 +191,11 @@ describe('QuizBuilder Core Security & API Test Suite', () => {
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
     });
+
+    test('POST /api/exams/record-warning rejects unauthenticated requests with 401', async () => {
+      const res = await request(app).post('/api/exams/record-warning').send({});
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
   });
 });

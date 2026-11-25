@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   els.ackAutoSubmitBtn.addEventListener("click", () => {
     els.autoSubmitModal.classList.remove("show");
-    finalizeExam();
+    finalizeExam(true);
   });
 
   if (els.reviewMarkBtn) {
@@ -330,23 +330,17 @@ function onPopState() {
 }
 
 /* ---------- Violation handling ---------- */
+let isAutoTerminated = false;
+
 function addViolation(reason) {
   const now = Date.now();
   if (now - lastViolationAt < VIOLATION_DEBOUNCE_MS) return;
   lastViolationAt = now;
 
-  if (isSubmitting) return;
+  if (hasFinalized || isAutoTerminated) return;
 
   warningCount++;
   els.warnCounter.textContent = "Warnings: " + warningCount + "/" + MAX_WARNINGS;
-
-  if (activeSessionId) {
-    fetch(getApiUrl("/api/exams/record-warning"), {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ sessionId: activeSessionId })
-    }).catch(e => console.warn("Record warning API:", e));
-  }
 
   if (warningCount < MAX_WARNINGS) {
     showWarningStrip("SECURITY WARNING " + warningCount + "/" + MAX_WARNINGS + " — " + reason);
@@ -354,6 +348,34 @@ function addViolation(reason) {
 
   if (warningCount >= MAX_WARNINGS) {
     triggerAutoSubmit();
+  }
+
+  if (activeSessionId) {
+    fetch(getApiUrl("/api/exams/record-warning"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sessionId: activeSessionId })
+    })
+      .then(async (res) => {
+        try {
+          return await res.json();
+        } catch {
+          return null;
+        }
+      })
+      .then((data) => {
+        if (data && data.autoSubmit && data.result) {
+          const resId = data.result.id || data.result._id;
+          if (resId && !hasFinalized) {
+            hasFinalized = true;
+            sessionStorage.removeItem(SS_EXAM_USER_E);
+            exitFullscreenCompat().finally(() => {
+              window.location.href = `result.html?id=${resId}`;
+            });
+          }
+        }
+      })
+      .catch((e) => console.warn("Record warning API:", e));
   }
 }
 
@@ -367,16 +389,28 @@ function showWarningStrip(message) {
 }
 
 function triggerAutoSubmit() {
-  if (isSubmitting) return;
-  isSubmitting = true;
+  if (hasFinalized || isAutoTerminated) return;
+  isAutoTerminated = true;
   clearInterval(timerInterval);
-  els.autoSubmitModal.classList.add("show");
+  detachSecurityListeners();
+
+  if (els.autoSubmitModal) {
+    els.autoSubmitModal.classList.add("show");
+  }
+
+  const ackBtn = els.ackAutoSubmitBtn || document.getElementById("ack-auto-submit-btn");
+  if (ackBtn) {
+    ackBtn.textContent = "Submitting Exam...";
+  }
+
   setTimeout(() => {
-    if (els.autoSubmitModal.classList.contains("show")) {
-      els.autoSubmitModal.classList.remove("show");
-      finalizeExam();
+    if (!hasFinalized) {
+      if (els.autoSubmitModal) {
+        els.autoSubmitModal.classList.remove("show");
+      }
+      finalizeExam(true);
     }
-  }, 3500);
+  }, 2000);
 }
 
 /* ---------- Timer ---------- */
@@ -605,8 +639,9 @@ function formatDuration(totalSeconds) {
 }
 
 let hasFinalized = false;
-function finalizeExam() {
-  if (isSubmitting) return;
+function finalizeExam(force = false) {
+  if (hasFinalized) return;
+  if (isSubmitting && !force) return;
   isSubmitting = true;
   clearInterval(timerInterval);
   detachSecurityListeners();
@@ -646,8 +681,9 @@ function finalizeExam() {
       }
       hasFinalized = true;
       sessionStorage.removeItem(SS_EXAM_USER_E);
+      const resId = data.result.id || data.result._id;
       exitFullscreenCompat().finally(() => {
-        window.location.href = `result.html?id=${data.result.id}`;
+        window.location.href = `result.html?id=${resId}`;
       });
     })
     .catch((err) => {
@@ -665,7 +701,7 @@ function finalizeExam() {
         if (retryBtn) {
           retryBtn.onclick = () => {
             errModal.classList.remove("show");
-            finalizeExam();
+            finalizeExam(true);
           };
         }
       } else {
