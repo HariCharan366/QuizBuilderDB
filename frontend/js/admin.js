@@ -1153,40 +1153,13 @@ document.addEventListener("DOMContentLoaded", () => {
               <button class="btn btn-danger btn-sm delete-q-btn" data-delete-id="${qId}" data-delete-index="${index}">Delete</button>
             </div>
           </div>
-
-          <div style="margin-top:8px;">
-            <button type="button" class="btn btn-ghost btn-sm toggle-q-options-btn" data-toggle-index="${index}" style="font-size:0.8rem; padding:4px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; color:#334155; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
-              <span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾
-            </button>
-          </div>
-
-          <div id="q-options-${index}" class="q-options-collapse hidden" style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0;">
-            <ul class="option-list" style="margin-bottom:8px;">${optionsHtml}</ul>
-            <div style="font-size:0.82rem; color: var(--gray-600); margin-top:6px;">
-              Correct Answer: <strong style="color:var(--success, #166534);">Option ${OPTION_LABELS[q.correct]} (${escapeHtml(opts[q.correct] || "")})</strong>
-            </div>
+          <ul class="option-list" style="margin-top:10px; margin-bottom:8px;">${optionsHtml}</ul>
+          <div style="font-size:0.82rem; color: var(--gray-600); margin-top:4px;">
+            Correct Answer: <strong style="color:var(--success, #166534);">Option ${OPTION_LABELS[q.correct]} (${escapeHtml(opts[q.correct] || "")})</strong>
           </div>
         </div>
       `;
     }).join("");
-
-    list.querySelectorAll(".toggle-q-options-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = btn.dataset.toggleIndex;
-        const target = document.getElementById(`q-options-${idx}`);
-        if (!target) return;
-        const isHidden = target.classList.contains("hidden");
-        if (isHidden) {
-          target.classList.remove("hidden");
-          btn.innerHTML = `<span class="toggle-icon">🙈</span> <span class="toggle-label">Tap to hide options</span> ▴`;
-          btn.style.background = "#e2e8f0";
-        } else {
-          target.classList.add("hidden");
-          btn.innerHTML = `<span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾`;
-          btn.style.background = "#f8fafc";
-        }
-      });
-    });
 
     list.querySelectorAll(".edit-q-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1216,6 +1189,47 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ---------- Total Saved Questions Panel Toggle ---------- */
+  const savedQuestionsToggleHeader = document.getElementById("saved-questions-toggle-header");
+  const toggleSavedQuestionsBtn = document.getElementById("toggle-saved-questions-btn");
+  const savedQuestionsBody = document.getElementById("saved-questions-body");
+
+  function toggleSavedQuestionsSection(e) {
+    if (e && e.target && e.target.closest('#toggle-saved-questions-btn') && e.currentTarget === savedQuestionsToggleHeader) {
+      return;
+    }
+    if (!savedQuestionsBody) return;
+    const isHidden = savedQuestionsBody.classList.contains("hidden");
+    const toggleIcon = document.getElementById("saved-questions-toggle-icon");
+    const toggleText = document.getElementById("saved-questions-toggle-text");
+
+    if (isHidden) {
+      savedQuestionsBody.classList.remove("hidden");
+      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "16px";
+      if (toggleIcon) toggleIcon.textContent = "🙈";
+      if (toggleText) toggleText.textContent = "Tap to Hide Saved Questions";
+      if (toggleSavedQuestionsBtn) {
+        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">🙈</span> <span id="saved-questions-toggle-text">Tap to Hide Saved Questions</span> ▴';
+        toggleSavedQuestionsBtn.style.background = "#e2e8f0";
+      }
+    } else {
+      savedQuestionsBody.classList.add("hidden");
+      if (savedQuestionsToggleHeader) savedQuestionsToggleHeader.style.marginBottom = "0";
+      if (toggleIcon) toggleIcon.textContent = "👁️";
+      if (toggleText) toggleText.textContent = "Tap to View Saved Questions";
+      if (toggleSavedQuestionsBtn) {
+        toggleSavedQuestionsBtn.innerHTML = '<span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Tap to View Saved Questions</span> ▾';
+        toggleSavedQuestionsBtn.style.background = "";
+      }
+    }
+  }
+
+  if (savedQuestionsToggleHeader) {
+    savedQuestionsToggleHeader.addEventListener("click", toggleSavedQuestionsSection);
+  }
+  if (toggleSavedQuestionsBtn) {
+    toggleSavedQuestionsBtn.addEventListener("click", toggleSavedQuestionsSection);
+  }
 
   const questionSearchInput = document.getElementById("question-search-input");
   if (questionSearchInput) {
@@ -1225,36 +1239,6 @@ document.addEventListener("DOMContentLoaded", () => {
       qDebounce = setTimeout(() => {
         loadQuestionsFromBackend(e.target.value.trim());
       }, 250);
-    });
-  }
-
-  const toggleAllOptionsBtn = document.getElementById("toggle-all-q-options-btn");
-  if (toggleAllOptionsBtn) {
-    let allExpanded = false;
-    toggleAllOptionsBtn.addEventListener("click", () => {
-      allExpanded = !allExpanded;
-      const collapses = document.querySelectorAll(".q-options-collapse");
-      const toggleBtns = document.querySelectorAll(".toggle-q-options-btn");
-
-      collapses.forEach((el) => {
-        if (allExpanded) {
-          el.classList.remove("hidden");
-        } else {
-          el.classList.add("hidden");
-        }
-      });
-
-      toggleBtns.forEach((btn) => {
-        if (allExpanded) {
-          btn.innerHTML = `<span class="toggle-icon">🙈</span> <span class="toggle-label">Tap to hide options</span> ▴`;
-          btn.style.background = "#e2e8f0";
-        } else {
-          btn.innerHTML = `<span class="toggle-icon">👁️</span> <span class="toggle-label">Tap to view options</span> ▾`;
-          btn.style.background = "#f8fafc";
-        }
-      });
-
-      toggleAllOptionsBtn.innerHTML = allExpanded ? "🙈 Collapse All Options" : "👁️ Expand All Options";
     });
   }
 

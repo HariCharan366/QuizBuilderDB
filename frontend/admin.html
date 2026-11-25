@@ -200,18 +200,29 @@
       </div>
 
       <!-- Saved Questions -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2>SAVED QUESTIONS</h2>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <input type="text" id="question-search-input" placeholder="🔍 Search question statement..."
-              style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:220px;" />
+      <div class="panel" id="saved-questions-panel">
+        <div class="panel-header" id="saved-questions-toggle-header" style="cursor: pointer; user-select: none; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <h2 style="margin:0; font-size:1.15rem; color:var(--navy-900); display:flex; align-items:center; gap:8px;">
+              SAVED QUESTIONS
+            </h2>
             <span class="count-badge" id="questions-count-badge">0 questions</span>
-            <button id="toggle-all-q-options-btn" class="btn btn-outline btn-sm" title="Expand or collapse options for all questions">👁️ Expand All Options</button>
-            <button id="reset-questions-btn" class="btn btn-danger btn-sm">Reset Default Questions</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="toggle-saved-questions-btn" class="btn btn-outline btn-sm" style="font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+              <span id="saved-questions-toggle-icon">👁️</span> <span id="saved-questions-toggle-text">Tap to View Saved Questions</span> ▾
+            </button>
           </div>
         </div>
-        <div id="questions-list"></div>
+
+        <div id="saved-questions-body" class="hidden" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+            <input type="text" id="question-search-input" placeholder="🔍 Search question statement..."
+              style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; min-width:240px; flex:1;" />
+            <button id="reset-questions-btn" class="btn btn-danger btn-sm">Reset Default Questions</button>
+          </div>
+          <div id="questions-list"></div>
+        </div>
       </div>
 
       <!-- Registered Students -->
